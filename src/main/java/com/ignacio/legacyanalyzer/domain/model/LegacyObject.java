@@ -13,6 +13,7 @@ public class LegacyObject {
     private List<String> codeSmells;
     private int riskScore;
     private String riskLevel;
+    private String functionalSummary;
 
     public LegacyObject(
             String id,
@@ -23,7 +24,8 @@ public class LegacyObject {
             String sourceCode,
             List<String> codeSmells,
             int riskScore,
-            String riskLevel
+            String riskLevel,
+            String FunctionalSummary
     ) {
         this.id = id;
         this.name = name;
@@ -34,8 +36,13 @@ public class LegacyObject {
         this.codeSmells = codeSmells;
         this.riskScore = riskScore;
         this.riskLevel = riskLevel;
+        this.functionalSummary = FunctionalSummary;
         
 
+    }
+
+    public String getFunctionalSummary() {
+        return functionalSummary;
     }
 
     public String getId() {

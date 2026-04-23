@@ -7,7 +7,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
 
@@ -34,6 +33,17 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 System.out.println("Risk Score: " + riskScore);
 System.out.println("Risk Level: " + riskLevel);
 
+
+String functionalSummary =
+        generateFunctionalSummary(
+                objectName,
+                objectType,
+                referencedTables,
+                riskLevel
+        );
+
+System.out.println("Summary: " + functionalSummary);
+
         return new LegacyObject(
                 UUID.randomUUID().toString(),
                 objectName,
@@ -43,8 +53,8 @@ System.out.println("Risk Level: " + riskLevel);
                 sourceCode,
                 codeSmells,
                 riskScore,  
-                riskLevel
-
+                riskLevel,
+                functionalSummary
         );
     }
 
@@ -187,7 +197,22 @@ private String calculateRiskLevel(int score) {
         return tables;
     }
 
+private String generateFunctionalSummary(
+        String objectName,
+        String objectType,
+        List<String> referencedTables,
+        String riskLevel
+) {
 
+    return "The " + objectType + " " + objectName +
+            " interacts with " + referencedTables.size() +
+            " tables and has a risk level of " + riskLevel + ".";
+}
+
+
+
+
+    
 
 
 }
