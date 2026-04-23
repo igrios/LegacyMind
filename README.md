@@ -1,72 +1,72 @@
 # LegacyMind
 
-## Overview
+## Descripción General
 
-LegacyMind is a micro-SaaS built in Java using Hexagonal Architecture focused on analyzing, understanding, and modernizing legacy PL/SQL and Oracle systems.
+LegacyMind es un micro-SaaS construido en Java con Arquitectura Hexagonal enfocado en analizar, entender y modernizar sistemas legacy en PL/SQL y Oracle.
 
-The goal is not only to parse legacy code, but to discover:
+El objetivo no es solamente parsear código legacy, sino descubrir:
 
-- what each package / procedure / function really does
-- which tables it impacts
-- what dependencies exist
-- what technical risks it contains
-- what may break if it is modified
-- how to reduce modernization risk
+- qué hace realmente cada package / procedure / function
+- qué tablas impacta
+- qué dependencias existen
+- qué riesgos técnicos presenta
+- qué puede romperse si se modifica
+- cómo reducir el riesgo de modernización
 
-LegacyMind transforms tribal knowledge into persistent knowledge.
+LegacyMind transforma conocimiento tribal en conocimiento persistente.
 
 ---
 
-## Problem It Solves
+## Problema que resuelve
 
-In many large companies such as:
+En muchas empresas grandes como:
 
-- Banks
+- Bancos
 - Telecom
-- Insurance
-- FinTech
+- Seguros
+- Fintech
 - Utilities
-- Public sector
+- Sector público
 
-there are legacy systems where:
+existen sistemas legacy donde:
 
-> “Only one person knows how that package works.”
+> “Solo una persona sabe cómo funciona ese package.”
 
-Typical example:
+Ejemplo típico:
 
-> “Don’t touch that package, it breaks billing.”
+> “No toques ese package porque rompe facturación.”
 
-but nobody knows exactly why.
+pero nadie sabe exactamente por qué.
 
-That is tribal knowledge.
+Eso es conocimiento tribal.
 
-LegacyMind converts that into persistent, searchable, and actionable information.
-
----
-
-## Commercial Value
-
-LegacyMind does NOT sell:
-
-> a PL/SQL parser
-
-LegacyMind sells:
-
-# Legacy Modernization Risk Reduction
-
-Companies do not buy regex.
-
-They buy:
-
-- reduced uncertainty
-- lower production risk
-- less dependency on key people
-- better decision making
-- safer modernization
+LegacyMind convierte eso en información persistente, consultable y accionable.
 
 ---
 
-## Tech Stack
+## Valor Comercial
+
+LegacyMind NO vende:
+
+> un parser de PL/SQL
+
+LegacyMind vende:
+
+# Reducción de riesgo en modernización legacy
+
+Las empresas no compran regex.
+
+Compran:
+
+- reducción de incertidumbre
+- menor riesgo en producción
+- menor dependencia de personas clave
+- mejor toma de decisiones
+- modernización más segura
+
+---
+
+## Stack Tecnológico
 
 ### Backend
 
@@ -75,9 +75,9 @@ They buy:
 - Maven
 - Spring Data JPA
 - PostgreSQL
-- Hexagonal Architecture
+- Arquitectura Hexagonal
 
-### Development
+### Desarrollo
 
 - Git
 - GitHub
@@ -85,17 +85,17 @@ They buy:
 - IntelliJ IDEA
 - Linux Mint
 
-### Future AI Layer
+### Futuro Capa IA
 
-- Ollama (local AI)
+- Ollama (IA local)
 - pgvector
-- semantic memory
-- modernization suggestions
+- memoria semántica
+- sugerencias de modernización
 - explanation engine
 
 ---
 
-## Project Structure
+## Estructura del Proyecto
 
 ```text
 src/main/java/com/ignacio/legacyanalyzer
@@ -125,24 +125,24 @@ src/main/java/com/ignacio/legacyanalyzer
 
 ---
 
-## Implemented Features
+## Funcionalidades Implementadas
 
-## 1. Legacy Object Parser
+## 1. Parser de Objetos Legacy
 
-Detects:
+Detecta:
 
 - PACKAGE
 - PROCEDURE
 - FUNCTION
 
-Extracts:
+Extrae:
 
 - objectName
 - objectType
-- internal procedures
+- procedures internas
 - referencedTables
 
-### Example
+### Ejemplo
 
 ```sql
 CREATE OR REPLACE PROCEDURE sync_customer AS
@@ -158,7 +158,7 @@ BEGIN
 END;
 ```
 
-### Output
+### Salida
 
 ```json
 {
@@ -178,16 +178,16 @@ END;
 
 ---
 
-## 2. Code Smell Detection
+## 2. Detección de Code Smells
 
-Currently detects:
+Actualmente detecta:
 
 - SELECT *
 - COMMIT inside procedure
 - WHEN OTHERS generic exception handling
 - Dynamic SQL (EXECUTE IMMEDIATE)
 
-### Example
+### Ejemplo
 
 ```sql
 CREATE OR REPLACE PROCEDURE process_refund AS
@@ -200,7 +200,7 @@ EXCEPTION
 END;
 ```
 
-### Result
+### Resultado
 
 ```json
 "codeSmells": [
@@ -212,24 +212,24 @@ END;
 
 ---
 
-## 3. Risk Score Engine
+## 3. Motor de Risk Score
 
-Each smell contributes to a technical risk score.
+Cada smell aporta a un score de riesgo técnico.
 
-### Current scoring
+### Scoring actual
 
 - SELECT * → +2
 - COMMIT → +2
 - WHEN OTHERS → +3
 - EXECUTE IMMEDIATE → +4
 
-### Risk levels
+### Niveles de riesgo
 
 - 0–2 → LOW
 - 3–6 → MEDIUM
 - 7+ → HIGH
 
-### Example
+### Ejemplo
 
 ```json
 {
@@ -240,9 +240,9 @@ Each smell contributes to a technical risk score.
 
 ---
 
-## 4. PostgreSQL Persistence
+## 4. Persistencia en PostgreSQL
 
-Stored data includes:
+Se almacena:
 
 - name
 - type
@@ -254,13 +254,13 @@ Stored data includes:
 - sourceCode
 - createdAt
 
-This turns LegacyMind into a knowledge system, not just a parser.
+Esto convierte LegacyMind en un sistema de conocimiento y no solamente en un parser.
 
 ---
 
-## REST API
+## API REST
 
-## POST Analyze Legacy Code
+## POST Analizar Código Legacy
 
 ### Endpoint
 
@@ -268,7 +268,7 @@ This turns LegacyMind into a knowledge system, not just a parser.
 POST /api/legacy/analyze
 ```
 
-### CURL Example
+### Ejemplo CURL
 
 ```bash
 curl -X POST http://localhost:8080/api/legacy/analyze \
@@ -278,7 +278,7 @@ curl -X POST http://localhost:8080/api/legacy/analyze \
 }'
 ```
 
-### Response
+### Respuesta
 
 ```json
 {
@@ -304,7 +304,7 @@ curl -X POST http://localhost:8080/api/legacy/analyze \
 
 ---
 
-## GET Analysis History
+## GET Historial de Análisis
 
 ### Endpoint
 
@@ -312,13 +312,13 @@ curl -X POST http://localhost:8080/api/legacy/analyze \
 GET /api/legacy/history
 ```
 
-### CURL Example
+### Ejemplo CURL
 
 ```bash
 curl http://localhost:8080/api/legacy/history
 ```
 
-### Response
+### Respuesta
 
 ```json
 [
@@ -339,11 +339,11 @@ curl http://localhost:8080/api/legacy/history
 
 ---
 
-## Technical Debt Identified
+## Deuda Técnica Identificada
 
-## Oracle Legacy Implicit Joins
+## Joins Implícitos Oracle Legacy
 
-Classic case:
+Caso clásico:
 
 ```sql
 SELECT *
@@ -354,78 +354,79 @@ WHERE c.id = d.customer_id
 AND d.id = a.debt_id(+)
 ```
 
-Currently the parser handles:
+Actualmente el parser maneja mejor:
 
 ```sql
-explicit JOIN
+JOIN explícito
 ```
 
-better than:
+que:
 
 ```sql
-table_a, table_b
+tabla_a, tabla_b
 ```
 
-This is registered as prioritized technical debt.
+Esto queda registrado como deuda técnica priorizada.
 
-Because the real value is in old syntax.
+Porque el verdadero valor está en sintaxis vieja.
 
-Not modern SQL.
+No en SQL moderno.
 
 ---
 
-## Difference vs SonarQube
+## Diferencial vs SonarQube
 
-SonarQube asks:
+SonarQube pregunta:
 
-> Is this code well written?
+> ¿Este código está bien escrito?
 
-LegacyMind asks:
+LegacyMind pregunta:
 
-> What does this legacy object really do and what happens if I modify it?
+> ¿Qué hace realmente este objeto legacy y qué pasa si lo modifico?
 
-That is the real differentiation.
+Ese es el verdadero diferencial.
 
-Not competing as a static analysis tool.
+No competir como herramienta de análisis estático.
 
-But as a:
+Sino como una:
 
 # Legacy Modernization Intelligence Platform
 
 ---
 
-## Next Steps
+## Próximos Pasos
 
-### Short Term
+### Corto Plazo
 
 - functionalSummary
-- better parser precision
-- implicit Oracle joins support
-- more code smells
+- mejor precisión del parser
+- soporte para joins implícitos Oracle
+- más code smells
 - dependency mapping
 
-### Mid Term
+### Mediano Plazo
 
-- automatic technical documentation
-- business impact explanation
-- modernization suggestions
+- documentación técnica automática
+- explicación funcional
+- impacto de negocio
+- sugerencias de modernización
 
-### Long Term
+### Largo Plazo
 
-- Ollama integration
-- pgvector semantic memory
-- AI-assisted modernization strategy
+- integración con Ollama
+- memoria semántica con pgvector
+- estrategia de modernización asistida por IA
 
 ---
 
-## Final Statement
+## Frase Final
 
-LegacyMind does not analyze only code.
+LegacyMind no analiza solamente código.
 
-It helps companies survive legacy systems.
+Ayuda a las empresas a sobrevivir sistemas legacy.
 
-Because:
+Porque:
 
-> Modern software is developed
+> el software moderno se desarrolla
 
-> Legacy software is survived
+> el software legacy se sobrevive
