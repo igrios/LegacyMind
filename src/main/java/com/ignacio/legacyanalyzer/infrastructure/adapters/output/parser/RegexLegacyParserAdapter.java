@@ -21,8 +21,18 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         String objectName = extractObjectName(normalizedSourceCode);
         String objectType = extractObjectType(normalizedSourceCode);
         List<String> procedures = extractProcedures(normalizedSourceCode);
-        List<String> referencedTables =
-                new ArrayList<>(extractReferencedTables(normalizedSourceCode));
+
+        List<String> referencedTables = new ArrayList<>(extractReferencedTables(normalizedSourceCode));
+
+         List<String> codeSmells =  detectCodeSmells(normalizedSourceCode);
+
+
+         System.out.println("Code Smells: " + codeSmells);
+         int riskScore = calculateRiskScore(codeSmells);
+        String riskLevel = calculateRiskLevel(riskScore);
+
+System.out.println("Risk Score: " + riskScore);
+System.out.println("Risk Level: " + riskLevel);
 
         return new LegacyObject(
                 UUID.randomUUID().toString(),
@@ -30,7 +40,11 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 objectType,
                 procedures,
                 referencedTables,
-                sourceCode
+                sourceCode,
+                codeSmells,
+                riskScore,  
+                riskLevel
+
         );
     }
 
@@ -65,6 +79,72 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         return "UNKNOWN";
     }
+
+
+private List<String> detectCodeSmells(String sourceCode) {
+
+    List<String> codeSmells = new ArrayList<>();
+
+    if (sourceCode.contains("SELECT *")) {
+        codeSmells.add("SELECT * detected");
+    }
+    if (sourceCode.contains("COMMIT")) {
+        codeSmells.add("COMMIT inside procedure");
+    }
+    if (sourceCode.contains("WHEN OTHERS")) {
+    codeSmells.add("WHEN OTHERS generic exception handling");
+    }
+    if (sourceCode.contains("EXECUTE IMMEDIATE")) {
+    codeSmells.add("Dynamic SQL detected (EXECUTE IMMEDIATE)");
+}
+
+    return codeSmells;
+}
+
+private int calculateRiskScore(List<String> codeSmells) {
+
+    int score = 0;
+
+    for (String smell : codeSmells) {
+
+        if (smell.contains("SELECT *")) {
+            score += 2;
+        }
+
+        if (smell.contains("COMMIT")) {
+            score += 2;
+        }
+
+        if (smell.contains("WHEN OTHERS")) {
+            score += 3;
+        }
+
+        if (smell.contains("EXECUTE IMMEDIATE")) {
+            score += 4;
+        }
+    }
+
+    return score;
+}
+
+
+private String calculateRiskLevel(int score) {
+
+    if (score >= 7) {
+        return "HIGH";
+    }
+
+    if (score >= 3) {
+        return "MEDIUM";
+    }
+
+    return "LOW";
+}
+
+
+
+
+
 
     private List<String> extractProcedures(String source) {
 
@@ -106,4 +186,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         return tables;
     }
+
+
+
+
 }

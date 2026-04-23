@@ -10,6 +10,9 @@ public class LegacyObject {
     private List<String> procedures;
     private List<String> referencedTables;
     private String sourceCode;
+    private List<String> codeSmells;
+    private int riskScore;
+    private String riskLevel;
 
     public LegacyObject(
             String id,
@@ -17,7 +20,10 @@ public class LegacyObject {
             String type,
             List<String> procedures,
             List<String> referencedTables,
-            String sourceCode
+            String sourceCode,
+            List<String> codeSmells,
+            int riskScore,
+            String riskLevel
     ) {
         this.id = id;
         this.name = name;
@@ -25,6 +31,11 @@ public class LegacyObject {
         this.procedures = procedures;
         this.referencedTables = referencedTables;
         this.sourceCode = sourceCode;
+        this.codeSmells = codeSmells;
+        this.riskScore = riskScore;
+        this.riskLevel = riskLevel;
+        
+
     }
 
     public String getId() {
@@ -49,5 +60,14 @@ public class LegacyObject {
 
     public String getSourceCode() {
         return sourceCode;
+    }
+    public List<String> getCodeSmells() {
+        return codeSmells;
+    }
+    public int getRiskScore() {
+        return riskScore;
+    }
+    public String getRiskLevel() {
+        return riskLevel;
     }
 }

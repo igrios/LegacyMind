@@ -24,8 +24,16 @@ public class LegacyObjectEntity {
 
    @Column(columnDefinition = "TEXT")
    private String referencedTables;
+   
+   private String codeSmells;
+
+   private Integer riskScore;
+
+   private String riskLevel;
 
    private LocalDateTime createdAt;
+
+
 
     public LegacyObjectEntity() {
       }
@@ -36,7 +44,10 @@ public class LegacyObjectEntity {
             String sourceCode,
             String procedures,
             String referencedTables,
-            LocalDateTime createdAt){
+            String codeSmells,
+            Integer riskScore,
+            String riskLevel,
+            LocalDateTime createdAt  ){
 
               this.id = id;
         this.name = name;
@@ -44,6 +55,9 @@ public class LegacyObjectEntity {
         this.sourceCode = sourceCode;
         this.procedures = procedures;
         this.referencedTables = referencedTables;
+        this.codeSmells = codeSmells;
+        this.riskScore = riskScore;
+        this.riskLevel = riskLevel;
         this.createdAt = createdAt;
    }
 
@@ -70,6 +84,17 @@ public String getId() {
     public String getReferencedTables() {
         return referencedTables;
     }
+    public String getCodeSmells() {
+    return codeSmells;
+}
+
+   public Integer getRiskScore() {
+    return riskScore;
+     }
+
+    public String getRiskLevel() {
+    return riskLevel;
+  }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
