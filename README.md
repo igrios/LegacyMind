@@ -1,39 +1,99 @@
 # LegacyMind
 
-LegacyMind es un micro-SaaS construido en Java con Arquitectura Hexagonal enfocado en analizar y modernizar sistemas legacy en PL/SQL.
+## Overview
 
-El objetivo no es solo parsear código legacy de Oracle, sino entender impacto de negocio, riesgos técnicos, dependencias y caminos de modernización.
+LegacyMind is a micro-SaaS built in Java using Hexagonal Architecture focused on analyzing, understanding, and modernizing legacy PL/SQL and Oracle systems.
 
-## Visión Principal
+The goal is not only to parse legacy code, but to discover:
 
-LegacyMind transforma conocimiento tribal en conocimiento técnico persistente, consultable y accionable.
+- what each package / procedure / function really does
+- which tables it impacts
+- what dependencies exist
+- what technical risks it contains
+- what may break if it is modified
+- how to reduce modernization risk
 
-Ayuda a reducir el riesgo de modernización en entornos Oracle PL/SQL.
+LegacyMind transforms tribal knowledge into persistent knowledge.
 
-## Módulo Actual: PL/SQL Legacy Analyzer
+---
 
-Permite:
-- Analizar Packages, Procedures y Functions
-- Detectar nombre y tipo del objeto
-- Detectar procedures internas
-- Detectar tablas referenciadas
-- Detectar code smells legacy
-- Calcular risk score técnico
-- Clasificar nivel de riesgo (LOW / MEDIUM / HIGH)
-- Persistir análisis en PostgreSQL
-- Consultar historial de análisis
+## Problem It Solves
 
-## Stack
+In many large companies such as:
+
+- Banks
+- Telecom
+- Insurance
+- FinTech
+- Utilities
+- Public sector
+
+there are legacy systems where:
+
+> “Only one person knows how that package works.”
+
+Typical example:
+
+> “Don’t touch that package, it breaks billing.”
+
+but nobody knows exactly why.
+
+That is tribal knowledge.
+
+LegacyMind converts that into persistent, searchable, and actionable information.
+
+---
+
+## Commercial Value
+
+LegacyMind does NOT sell:
+
+> a PL/SQL parser
+
+LegacyMind sells:
+
+# Legacy Modernization Risk Reduction
+
+Companies do not buy regex.
+
+They buy:
+
+- reduced uncertainty
+- lower production risk
+- less dependency on key people
+- better decision making
+- safer modernization
+
+---
+
+## Tech Stack
+
+### Backend
 
 - Java 21
 - Spring Boot 3.5.13
 - Maven
 - Spring Data JPA
 - PostgreSQL
-- Arquitectura Hexagonal
-- Git + GitHub
-- Futuro: Ollama + pgvector
+- Hexagonal Architecture
 
+### Development
+
+- Git
+- GitHub
+- VS Code
+- IntelliJ IDEA
+- Linux Mint
+
+### Future AI Layer
+
+- Ollama (local AI)
+- pgvector
+- semantic memory
+- modernization suggestions
+- explanation engine
+
+---
 
 ## Project Structure
 
@@ -63,53 +123,309 @@ src/main/java/com/ignacio/legacyanalyzer
 └── LegacyAnalyzerApplication.java
 ```
 
+---
 
-## Code Smells detectados
+## Implemented Features
+
+## 1. Legacy Object Parser
+
+Detects:
+
+- PACKAGE
+- PROCEDURE
+- FUNCTION
+
+Extracts:
+
+- objectName
+- objectType
+- internal procedures
+- referencedTables
+
+### Example
+
+```sql
+CREATE OR REPLACE PROCEDURE sync_customer AS
+BEGIN
+    SELECT *
+    INTO v_customer
+    FROM customer_table
+    JOIN debt_table
+        ON customer_table.id = debt_table.customer_id;
+
+    UPDATE audit_table
+    SET updated_at = SYSDATE;
+END;
+```
+
+### Output
+
+```json
+{
+  "name": "SYNC_CUSTOMER",
+  "type": "PROCEDURE",
+  "procedures": [
+    "SYNC_CUSTOMER"
+  ],
+  "referencedTables": [
+    "DEBT_TABLE",
+    "CUSTOMER_TABLE",
+    "AUDIT_TABLE",
+    "V_CUSTOMER"
+  ]
+}
+```
+
+---
+
+## 2. Code Smell Detection
+
+Currently detects:
 
 - SELECT *
 - COMMIT inside procedure
 - WHEN OTHERS generic exception handling
 - Dynamic SQL (EXECUTE IMMEDIATE)
 
+### Example
 
-## Risk Score actual
+```sql
+CREATE OR REPLACE PROCEDURE process_refund AS
+BEGIN
+    SELECT * FROM refund_table;
+    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+END;
+```
+
+### Result
+
+```json
+"codeSmells": [
+  "SELECT * detected",
+  "COMMIT inside procedure",
+  "WHEN OTHERS generic exception handling"
+]
+```
+
+---
+
+## 3. Risk Score Engine
+
+Each smell contributes to a technical risk score.
+
+### Current scoring
 
 - SELECT * → +2
 - COMMIT → +2
 - WHEN OTHERS → +3
 - EXECUTE IMMEDIATE → +4
 
-0–2 → LOW
-3–6 → MEDIUM
-7+ → HIGH
+### Risk levels
 
-## Valor Comercial
+- 0–2 → LOW
+- 3–6 → MEDIUM
+- 7+ → HIGH
 
-LegacyMind no vende un parser de PL/SQL.
+### Example
 
-Vende reducción de riesgo en modernización legacy.
+```json
+{
+  "riskScore": 11,
+  "riskLevel": "HIGH"
+}
+```
 
-Especialmente útil para bancos, telecom, seguros, fintech y grandes empresas con Oracle legacy.
+---
 
-## Próximos pasos
+## 4. PostgreSQL Persistence
 
-- Functional summary generation
-- Mejor precisión del parser
-- Mejor soporte para sintaxis Oracle legacy
-- Más code smells
-- Dependency mapping
-- Integración con Ollama
-- Memoria semántica con pgvector
+Stored data includes:
 
-## Frase clave
+- name
+- type
+- procedures
+- referencedTables
+- codeSmells
+- riskScore
+- riskLevel
+- sourceCode
+- createdAt
 
-LegacyMind convierte conocimiento tribal en conocimiento persistente.
+This turns LegacyMind into a knowledge system, not just a parser.
 
+---
 
+## REST API
 
+## POST Analyze Legacy Code
 
-Repository
+### Endpoint
 
-GitHub:
+```http
+POST /api/legacy/analyze
+```
 
-https://github.com/igrios/LegacyMind
+### CURL Example
+
+```bash
+curl -X POST http://localhost:8080/api/legacy/analyze \
+-H "Content-Type: application/json" \
+-d '{
+  "sourceCode": "CREATE OR REPLACE PROCEDURE generate_dynamic_report AS v_sql VARCHAR2(1000); BEGIN SELECT * FROM report_table; v_sql := '\''UPDATE audit_table SET updated_at = SYSDATE WHERE id = 1'\''; EXECUTE IMMEDIATE v_sql; COMMIT; EXCEPTION WHEN OTHERS THEN ROLLBACK; END;"
+}'
+```
+
+### Response
+
+```json
+{
+  "name": "GENERATE_DYNAMIC_REPORT",
+  "type": "PROCEDURE",
+  "procedures": [
+    "GENERATE_DYNAMIC_REPORT"
+  ],
+  "referencedTables": [
+    "REPORT_TABLE",
+    "AUDIT_TABLE"
+  ],
+  "codeSmells": [
+    "SELECT * detected",
+    "COMMIT inside procedure",
+    "WHEN OTHERS generic exception handling",
+    "Dynamic SQL detected (EXECUTE IMMEDIATE)"
+  ],
+  "riskScore": 11,
+  "riskLevel": "HIGH"
+}
+```
+
+---
+
+## GET Analysis History
+
+### Endpoint
+
+```http
+GET /api/legacy/history
+```
+
+### CURL Example
+
+```bash
+curl http://localhost:8080/api/legacy/history
+```
+
+### Response
+
+```json
+[
+  {
+    "name": "VALIDATE_CREDIT_LIMIT",
+    "type": "FUNCTION",
+    "riskScore": 7,
+    "riskLevel": "HIGH"
+  },
+  {
+    "name": "GENERATE_DYNAMIC_REPORT",
+    "type": "PROCEDURE",
+    "riskScore": 11,
+    "riskLevel": "HIGH"
+  }
+]
+```
+
+---
+
+## Technical Debt Identified
+
+## Oracle Legacy Implicit Joins
+
+Classic case:
+
+```sql
+SELECT *
+FROM customer_table c,
+     debt_table d,
+     audit_table a
+WHERE c.id = d.customer_id
+AND d.id = a.debt_id(+)
+```
+
+Currently the parser handles:
+
+```sql
+explicit JOIN
+```
+
+better than:
+
+```sql
+table_a, table_b
+```
+
+This is registered as prioritized technical debt.
+
+Because the real value is in old syntax.
+
+Not modern SQL.
+
+---
+
+## Difference vs SonarQube
+
+SonarQube asks:
+
+> Is this code well written?
+
+LegacyMind asks:
+
+> What does this legacy object really do and what happens if I modify it?
+
+That is the real differentiation.
+
+Not competing as a static analysis tool.
+
+But as a:
+
+# Legacy Modernization Intelligence Platform
+
+---
+
+## Next Steps
+
+### Short Term
+
+- functionalSummary
+- better parser precision
+- implicit Oracle joins support
+- more code smells
+- dependency mapping
+
+### Mid Term
+
+- automatic technical documentation
+- business impact explanation
+- modernization suggestions
+
+### Long Term
+
+- Ollama integration
+- pgvector semantic memory
+- AI-assisted modernization strategy
+
+---
+
+## Final Statement
+
+LegacyMind does not analyze only code.
+
+It helps companies survive legacy systems.
+
+Because:
+
+> Modern software is developed
+
+> Legacy software is survived
