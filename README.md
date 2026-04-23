@@ -65,7 +65,6 @@ src/main/java/com/ignacio/legacyanalyzer
 - WHEN OTHERS generic exception handling
 - Dynamic SQL (EXECUTE IMMEDIATE)
 
-# LegacyMind\n\nREADME completo con arquitectura, ejemplos de POST/GET, code smells, risk score y visión comercial de LegacyMind.\n\n## Endpoints principales\n\n### POST /api/legacy/analyze\nAnaliza código PL/SQL legacy, detecta tablas, code smells y calcula riesgo.\n\n### GET /api/legacy/history\nDevuelve historial persistido en PostgreSQL.\n\n## Code smells detectados\n- SELECT *\n- COMMIT inside procedure\n- WHEN OTHERS\n- EXECUTE IMMEDIATE\n\n## Risk Score\n- SELECT * = +2\n- COMMIT = +2\n- WHEN OTHERS = +3\n- EXECUTE IMMEDIATE = +4\n\n0-2 LOW\n3-6 MEDIUM\n7+ HIGH\n\n## Valor\nLegacyMind vende reducción de riesgo en modernización legacy y transforma conocimiento tribal en conocimiento persistente.\n
 
 ## Risk Score actual
 
