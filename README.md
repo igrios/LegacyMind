@@ -34,9 +34,12 @@ Permite:
 - Git + GitHub
 - Futuro: Ollama + pgvector
 
+
 ## Project Structure
 
+```text
 src/main/java/com/ignacio/legacyanalyzer
+│
 ├── application
 │   ├── dto
 │   └── usecase
@@ -48,7 +51,9 @@ src/main/java/com/ignacio/legacyanalyzer
 │
 ├── infrastructure
 │   ├── adapters
-│   │   ├── input/controller
+│   │   ├── input
+│   │   │   └── controller
+│   │   │
 │   │   └── output
 │   │       ├── parser
 │   │       └── persistence
@@ -56,6 +61,7 @@ src/main/java/com/ignacio/legacyanalyzer
 │   └── config
 │
 └── LegacyAnalyzerApplication.java
+```
 
 
 ## Code Smells detectados
