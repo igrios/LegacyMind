@@ -9,7 +9,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
+import com.ignacio.legacyanalyzer.application.usecase.AnalyzeLegacyUseCase;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
+import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
+import com.ignacio.legacyanalyzer.domain.services.DependencyAnalyzerService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
@@ -21,11 +24,18 @@ public class LegacyController {
 
         private final RegexLegacyParserAdapter parserAdapter;
         private final LegacyObjectRepository repository;
+        private final AnalyzeLegacyUseCase useCase;
 
-        public LegacyController(LegacyObjectRepository repository) {
-                this.parserAdapter = new RegexLegacyParserAdapter();
-                this.repository = repository;
-        }
+       public LegacyController(
+        LegacyObjectRepository repository,
+        TableDependencyRepositoryPort dependencyPort,
+        DependencyAnalyzerService analyzerService) {
+
+         this.parserAdapter = new RegexLegacyParserAdapter();
+         this.repository = repository;
+         this.useCase = new AnalyzeLegacyUseCase(dependencyPort,analyzerService);
+}
+
 
         @PostMapping("/analyze")
         public AnalyzeLegacyResponse analyze(@RequestBody AnalyzeLegacyRequest request) {
@@ -69,8 +79,9 @@ public class LegacyController {
                                 entity.getRiskScore() != null ? entity.getRiskScore() : 0,
                                 entity.getRiskLevel() != null ? entity.getRiskLevel() : "LOW",
 
-                                entity.getFunctionalSummary() != null ? entity.getFunctionalSummary()
-            : "No summary available"
+                                entity.getFunctionalSummary() != null
+                                                ? entity.getFunctionalSummary()
+                                                : "No summary available"
 
                 )).toList();
         }
