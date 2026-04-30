@@ -1,7 +1,10 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence;
 
 import java.time.LocalDateTime;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 
 
@@ -33,7 +36,8 @@ public class LegacyObjectEntity {
 
    private LocalDateTime createdAt;
 
-
+@Column(name = "functional_summary")
+private String functionalSummary;
 
     public LegacyObjectEntity() {
       }
@@ -47,6 +51,7 @@ public class LegacyObjectEntity {
             String codeSmells,
             Integer riskScore,
             String riskLevel,
+            String functionalSummary,
             LocalDateTime createdAt  ){
 
               this.id = id;
@@ -59,6 +64,7 @@ public class LegacyObjectEntity {
         this.riskScore = riskScore;
         this.riskLevel = riskLevel;
         this.createdAt = createdAt;
+        this.functionalSummary = functionalSummary;
    }
 
 public String getId() {
@@ -95,6 +101,12 @@ public String getId() {
     public String getRiskLevel() {
     return riskLevel;
   }
+
+public String getFunctionalSummary() {
+    return functionalSummary;
+}
+
+
 
     public LocalDateTime getCreatedAt() {
         return createdAt;

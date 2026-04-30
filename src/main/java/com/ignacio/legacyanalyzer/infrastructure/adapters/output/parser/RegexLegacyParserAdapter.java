@@ -1,13 +1,14 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
 
@@ -16,178 +17,210 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     @Override
     public LegacyObject parse(String sourceCode) {
 
-        String normalizedSourceCode = sourceCode.toUpperCase();
+        String normalized = sourceCode.toUpperCase();
 
-        String objectName = extractObjectName(normalizedSourceCode);
-        String objectType = extractObjectType(normalizedSourceCode);
-        List<String> procedures = extractProcedures(normalizedSourceCode);
+        // ----------------------------
+        // NAME + TYPE
+        // ----------------------------
+        String name = null;
+        String type = null;
 
-        List<String> referencedTables = new ArrayList<>(extractReferencedTables(normalizedSourceCode));
+        Pattern namePattern =
+                Pattern.compile("(PROCEDURE|FUNCTION|PACKAGE)\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
 
-         List<String> codeSmells =  detectCodeSmells(normalizedSourceCode);
+        Matcher nameMatcher = namePattern.matcher(sourceCode);
 
+        if (nameMatcher.find()) {
+            type = nameMatcher.group(1).toUpperCase();
+            name = nameMatcher.group(2).toUpperCase();
+        }
 
-         System.out.println("Code Smells: " + codeSmells);
-         int riskScore = calculateRiskScore(codeSmells);
-        String riskLevel = calculateRiskLevel(riskScore);
+        // ----------------------------
+        // PROCEDURES
+        // ----------------------------
+        List<String> procedures = name != null ? List.of(name) : List.of();
 
-System.out.println("Risk Score: " + riskScore);
-System.out.println("Risk Level: " + riskLevel);
+        // ----------------------------
+        // TABLES + ALIAS (IMPLICIT JOIN SUPPORT)
+        // ----------------------------
+        Map<String, String> aliasMap = extractTablesWithAlias(sourceCode);
+        Set<String> tables = new HashSet<>(aliasMap.values());
 
-        return new LegacyObject(
-                UUID.randomUUID().toString(),
-                objectName,
-                objectType,
-                procedures,
-                referencedTables,
-                sourceCode,
-                codeSmells,
-                riskScore,  
-                riskLevel
+        // ----------------------------
+        // EXPLICIT JOIN SUPPORT
+        // ----------------------------
+        Pattern joinPattern = Pattern.compile("(FROM|JOIN)\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
 
-        );
+        Matcher joinMatcher = joinPattern.matcher(sourceCode);
+
+        while (joinMatcher.find()) {
+            tables.add(joinMatcher.group(2).toUpperCase());
+        }
+
+        // ----------------------------
+        // UPDATE SUPPORT
+        // ----------------------------
+        Pattern updatePattern = Pattern.compile("UPDATE\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        Matcher updateMatcher = updatePattern.matcher(sourceCode);
+
+        while (updateMatcher.find()) {
+            tables.add(updateMatcher.group(1).toUpperCase());
+        }
+
+        // ----------------------------
+        // INSERT SUPPORT (🔥 FIX)
+        // ----------------------------
+        Pattern insertPattern =
+                Pattern.compile("INSERT\\s+INTO\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        Matcher insertMatcher = insertPattern.matcher(sourceCode);
+
+        while (insertMatcher.find()) {
+            tables.add(insertMatcher.group(1).toUpperCase());
+        }
+
+        // ----------------------------
+        // CLEAN TABLE LIST (SIEMPRE AL FINAL)
+        // ----------------------------
+        List<String> referencedTables =
+                tables.stream().filter(t -> t != null && !t.isBlank()).distinct().toList();
+
+        // ----------------------------
+        // RELACIONES IMPLÍCITAS (base para dependency graph)
+        // ----------------------------
+        List<String> relations = extractImplicitRelations(sourceCode, aliasMap);
+        // (todavía no las guardamos en el modelo, pero ya están listas)
+
+        // ----------------------------
+        // CODE SMELLS
+        // ----------------------------
+        List<String> smells = new ArrayList<>();
+
+        if (normalized.contains("SELECT *")) {
+            smells.add("SELECT * detected");
+        }
+
+        if (normalized.contains("COMMIT")) {
+            smells.add("COMMIT inside procedure");
+        }
+
+        if (normalized.contains("WHEN OTHERS")) {
+            smells.add("WHEN OTHERS generic exception handling");
+        }
+
+        if (normalized.contains("EXECUTE IMMEDIATE")) {
+            smells.add("Dynamic SQL detected (EXECUTE IMMEDIATE)");
+        }
+
+        // ----------------------------
+        // RISK SCORE
+        // ----------------------------
+        int score = 0;
+
+        for (String smell : smells) {
+            if (smell.contains("SELECT *"))
+                score += 2;
+            if (smell.contains("COMMIT"))
+                score += 2;
+            if (smell.contains("WHEN OTHERS"))
+                score += 3;
+            if (smell.contains("EXECUTE IMMEDIATE"))
+                score += 4;
+        }
+
+        String riskLevel;
+        if (score <= 2)
+            riskLevel = "LOW";
+        else if (score <= 6)
+            riskLevel = "MEDIUM";
+        else
+            riskLevel = "HIGH";
+
+        // ----------------------------
+        // FUNCTIONAL SUMMARY
+        // ----------------------------
+        String summary = "The " + type + " " + name + " interacts with " + referencedTables.size()
+                + " tables and has a risk level of " + riskLevel + ".";
+
+        // ----------------------------
+        // 🔥 RETURN INMUTABLE OBJECT
+        // ----------------------------
+        return new LegacyObject(UUID.randomUUID().toString(), name, type, procedures,
+                referencedTables, sourceCode, smells, score, riskLevel, summary);
     }
 
-    private String extractObjectName(String sourceCode) {
+    // ======================================================
+    // 🔥 TABLE + ALIAS EXTRACTION (IMPLICIT JOIN)
+    // ======================================================
+    private Map<String, String> extractTablesWithAlias(String sql) {
 
-        Pattern pattern = Pattern.compile(
-                "CREATE\\s+OR\\s+REPLACE\\s+(PACKAGE|FUNCTION|PROCEDURE)\\s+([A-Z0-9_]+)"
-        );
+        Map<String, String> aliasToTable = new HashMap<>();
 
-        Matcher matcher = pattern.matcher(sourceCode);
+        Pattern fromPattern = Pattern.compile("FROM\\s+(.*?)\\s+(WHERE|GROUP BY|ORDER BY|$)",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+
+        Matcher matcher = fromPattern.matcher(sql);
 
         if (matcher.find()) {
-            return matcher.group(2);
-        }
+            String fromClause = matcher.group(1);
 
-        return "UNKNOWN_OBJECT";
-    }
+            String[] tables = fromClause.split(",");
 
-    private String extractObjectType(String sourceCode) {
+            for (String table : tables) {
 
-        if (sourceCode.contains("CREATE OR REPLACE PACKAGE")) {
-            return "PACKAGE";
-        }
+                String cleaned = table.trim().replaceAll("\\s+", " ");
 
-        if (sourceCode.contains("CREATE OR REPLACE FUNCTION")) {
-            return "FUNCTION";
-        }
+                if (cleaned.isBlank())
+                    continue;
 
-        if (sourceCode.contains("CREATE OR REPLACE PROCEDURE")) {
-            return "PROCEDURE";
-        }
+                String[] parts = cleaned.split(" ");
 
-        return "UNKNOWN";
-    }
+                String tableName = parts[0].toUpperCase();
 
-
-private List<String> detectCodeSmells(String sourceCode) {
-
-    List<String> codeSmells = new ArrayList<>();
-
-    if (sourceCode.contains("SELECT *")) {
-        codeSmells.add("SELECT * detected");
-    }
-    if (sourceCode.contains("COMMIT")) {
-        codeSmells.add("COMMIT inside procedure");
-    }
-    if (sourceCode.contains("WHEN OTHERS")) {
-    codeSmells.add("WHEN OTHERS generic exception handling");
-    }
-    if (sourceCode.contains("EXECUTE IMMEDIATE")) {
-    codeSmells.add("Dynamic SQL detected (EXECUTE IMMEDIATE)");
-}
-
-    return codeSmells;
-}
-
-private int calculateRiskScore(List<String> codeSmells) {
-
-    int score = 0;
-
-    for (String smell : codeSmells) {
-
-        if (smell.contains("SELECT *")) {
-            score += 2;
-        }
-
-        if (smell.contains("COMMIT")) {
-            score += 2;
-        }
-
-        if (smell.contains("WHEN OTHERS")) {
-            score += 3;
-        }
-
-        if (smell.contains("EXECUTE IMMEDIATE")) {
-            score += 4;
-        }
-    }
-
-    return score;
-}
-
-
-private String calculateRiskLevel(int score) {
-
-    if (score >= 7) {
-        return "HIGH";
-    }
-
-    if (score >= 3) {
-        return "MEDIUM";
-    }
-
-    return "LOW";
-}
-
-
-
-
-
-
-    private List<String> extractProcedures(String source) {
-
-        List<String> procedures = new ArrayList<>();
-
-        Pattern pattern = Pattern.compile(
-                "PROCEDURE\\s+([A-Z0-9_]+)"
-        );
-
-        Matcher matcher = pattern.matcher(source);
-
-        while (matcher.find()) {
-            procedures.add(matcher.group(1));
-        }
-
-        return procedures;
-    }
-
-    private Set<String> extractReferencedTables(String source) {
-
-        Set<String> tables = new HashSet<>();
-
-        List<String> regexList = List.of(
-                "FROM\\s+([A-Z0-9_]+)",
-                "JOIN\\s+([A-Z0-9_]+)",
-                "INTO\\s+([A-Z0-9_]+)",
-                "UPDATE\\s+([A-Z0-9_]+)"
-        );
-
-        for (String regex : regexList) {
-
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(source);
-
-            while (matcher.find()) {
-                tables.add(matcher.group(1));
+                if (parts.length == 1) {
+                    aliasToTable.put(tableName, tableName);
+                } else {
+                    String alias = parts[1].toUpperCase();
+                    aliasToTable.put(alias, tableName);
+                }
             }
         }
 
-        return tables;
+        return aliasToTable;
     }
 
+    // ======================================================
+    // 🔥 IMPLICIT JOIN RELATION DETECTION
+    // ======================================================
+    private List<String> extractImplicitRelations(String sql, Map<String, String> aliasMap) {
 
+        List<String> relations = new ArrayList<>();
 
+        Pattern wherePattern = Pattern.compile("WHERE\\s+(.*?)(GROUP BY|ORDER BY|$)",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
+        Matcher matcher = wherePattern.matcher(sql);
+
+        if (matcher.find()) {
+
+            String whereClause = matcher.group(1);
+
+            Pattern relationPattern = Pattern.compile("(\\w+)\\.(\\w+)\\s*=\\s*(\\w+)\\.(\\w+)",
+                    Pattern.CASE_INSENSITIVE);
+
+            Matcher relMatcher = relationPattern.matcher(whereClause);
+
+            while (relMatcher.find()) {
+
+                String leftAlias = relMatcher.group(1).toUpperCase();
+                String rightAlias = relMatcher.group(3).toUpperCase();
+
+                String leftTable = aliasMap.getOrDefault(leftAlias, leftAlias);
+                String rightTable = aliasMap.getOrDefault(rightAlias, rightAlias);
+
+                relations.add(leftTable + " -> " + rightTable);
+            }
+        }
+
+        return relations;
+    }
 }
