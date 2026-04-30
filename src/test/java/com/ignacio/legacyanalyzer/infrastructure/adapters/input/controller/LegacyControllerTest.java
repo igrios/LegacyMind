@@ -1,16 +1,17 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.input.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.time.LocalDateTime;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
+
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
@@ -19,38 +20,48 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.Leg
 @ExtendWith(MockitoExtension.class)
 class LegacyControllerTest {
 
-  @Mock
-  private LegacyObjectRepository repository;
+    @Mock
+    private LegacyObjectRepository repository;
 
-  @InjectMocks
-  private LegacyController controller;
+    @InjectMocks
+    private LegacyController controller;
 
-  @Test
-  void analyzeShouldSaveAndReturnResponse() {
-    AnalyzeLegacyRequest request = new AnalyzeLegacyRequest();
-    request.setSourceCode("SELECT * FROM users;");
+    @Test
+    void analyzeShouldSaveAndReturnResponse() {
+        AnalyzeLegacyRequest request = new AnalyzeLegacyRequest();
+        request.setSourceCode("SELECT * FROM users;");
 
-    AnalyzeLegacyResponse response = controller.analyze(request);
+        AnalyzeLegacyResponse response = controller.analyze(request);
 
-    verify(repository).save(any(LegacyObjectEntity.class));
+        verify(repository).save(any(LegacyObjectEntity.class));
 
-    assertNotNull(response);
-    assertNotNull(response.name());
-    assertNotNull(response.type());
-  }
+        assertNotNull(response);
+        assertNotNull(response.name());
+        assertNotNull(response.type());
+    }
 
-  @Test
-  void historyShouldReturnMappedResults() {
-    LegacyObjectEntity entity = new LegacyObjectEntity();
-    entity.setName("PKG_TEST");
-    entity.setType("PACKAGE");
-    entity.setProcedures("A,B");
+    @Test
+    void historyShouldReturnMappedResults() {
+        LegacyObjectEntity entity = new LegacyObjectEntity(
+                "1",
+                "PKG_TEST",
+                "PACKAGE",
+                "source",
+                "A,B",
+                "T1,T2",
+                null,
+                null,
+                null,
+                null,
+                LocalDateTime.now()
+        );
 
-    when(repository.findAll()).thenReturn(List.of(entity));
+        when(repository.findAll()).thenReturn(List.of(entity));
 
-    List<AnalyzeLegacyResponse> result = controller.history();
+        List<AnalyzeLegacyResponse> result = controller.history();
 
-    assertEquals(1, result.size());
-    assertEquals(List.of("A", "B"), result.get(0).procedures());
-  }
+        assertEquals(1, result.size());
+        assertEquals("PKG_TEST", result.get(0).name());
+        assertEquals(List.of("A", "B"), result.get(0).procedures());
+    }
 }
