@@ -37,16 +37,15 @@ public class LegacyController {
                                 String.join(",", object.getProcedures()),
                                 String.join(",", object.getReferencedTables()),
                                 String.join(",", object.getCodeSmells()), object.getRiskScore(),
-                                object.getRiskLevel(), LocalDateTime.now());
+                                object.getRiskLevel(), object.getFunctionalSummary(),
+                                LocalDateTime.now());
 
                 repository.save(entity);
 
                 return new AnalyzeLegacyResponse(object.getName(), object.getType(),
                                 object.getProcedures(), object.getReferencedTables(),
-                                object.getCodeSmells(), object.getRiskScore(), object.getRiskLevel()
-
-
-                );
+                                object.getCodeSmells(), object.getRiskScore(),
+                                object.getRiskLevel(), object.getFunctionalSummary());
         }
 
         @GetMapping("/history")
@@ -68,9 +67,12 @@ public class LegacyController {
                                                 : List.of(),
 
                                 entity.getRiskScore() != null ? entity.getRiskScore() : 0,
+                                entity.getRiskLevel() != null ? entity.getRiskLevel() : "LOW",
 
-                                entity.getRiskLevel() != null ? entity.getRiskLevel() : "LOW"))
-                                .toList();
+                                entity.getFunctionalSummary() != null ? entity.getFunctionalSummary()
+            : "No summary available"
+
+                )).toList();
         }
 
 

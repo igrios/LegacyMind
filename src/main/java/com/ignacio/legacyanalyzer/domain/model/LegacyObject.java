@@ -26,6 +26,7 @@ public class LegacyObject {
             int riskScore,
             String riskLevel,
             String FunctionalSummary
+          
     ) {
         this.id = id;
         this.name = name;

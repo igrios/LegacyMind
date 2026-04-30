@@ -9,6 +9,7 @@ public record AnalyzeLegacyResponse(
         List<String> referencedTables,
         List<String> codeSmells,
         int riskScore,
-        String riskLevel
+        String riskLevel,
+         String functionalSummary
 ) {
 }

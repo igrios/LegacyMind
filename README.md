@@ -1,90 +1,75 @@
 # LegacyMind
 
-LegacyMind es un micro-SaaS orientado a la modernización de sistemas legacy en PL/SQL usando Java, arquitectura hexagonal e integración futura con IA local.
+LegacyMind es un micro-SaaS construido en Java con Arquitectura Hexagonal enfocado en analizar y modernizar sistemas legacy en PL/SQL.
 
-## Objetivo
+El objetivo no es solo parsear código legacy de Oracle, sino entender impacto de negocio, riesgos técnicos, dependencias y caminos de modernización.
 
-El primer módulo del proyecto es:
+## Visión Principal
 
-## PL/SQL Legacy Analyzer
+LegacyMind transforma conocimiento tribal en conocimiento técnico persistente, consultable y accionable.
 
-Este módulo permite:
+Ayuda a reducir el riesgo de modernización en entornos Oracle PL/SQL.
 
-- Analizar packages y objetos PL/SQL
-- Detectar dependencias iniciales
-- Identificar procedures internas
+## Módulo Actual: PL/SQL Legacy Analyzer
+
+Permite:
+- Analizar Packages, Procedures y Functions
+- Detectar nombre y tipo del objeto
+- Detectar procedures internas
 - Detectar tablas referenciadas
-- Generar documentación técnica automática
-- Asistir migraciones hacia arquitectura moderna
-- Preparar integración futura con IA local (Ollama)
-- Persistir conocimiento técnico con PostgreSQL + pgvector
+- Detectar code smells legacy
+- Calcular risk score técnico
+- Clasificar nivel de riesgo (LOW / MEDIUM / HIGH)
+- Persistir análisis en PostgreSQL
+- Consultar historial de análisis
 
----
-
-# Stack Tecnológico
-
-## Backend
+## Stack
 
 - Java 21
 - Spring Boot 3.5.13
 - Maven
-- Arquitectura Hexagonal
-
-## Base de Datos
-
+- Spring Data JPA
 - PostgreSQL
-- pgvector (vector database para memoria semántica)
+- Arquitectura Hexagonal
+- Git + GitHub
+- Futuro: Ollama + pgvector
 
-## IA futura
+## Code Smells detectados
 
-- Ollama (modelo local)
+- SELECT *
+- COMMIT inside procedure
+- WHEN OTHERS generic exception handling
+- Dynamic SQL (EXECUTE IMMEDIATE)
 
-## IDE
+## Risk Score actual
 
-- Visual Studio Code
-- IntelliJ IDEA
+- SELECT * → +2
+- COMMIT → +2
+- WHEN OTHERS → +3
+- EXECUTE IMMEDIATE → +4
 
----
+0–2 → LOW
+3–6 → MEDIUM
+7+ → HIGH
 
-# Endpoint disponible
+## Valor Comercial
 
-## Analizar código PL/SQL
+LegacyMind no vende un parser de PL/SQL.
 
-POST /api/legacy/analyze
+Vende reducción de riesgo en modernización legacy.
 
-### Request
+Especialmente útil para bancos, telecom, seguros, fintech y grandes empresas con Oracle legacy.
 
-```json
-{
-  "sourceCode": "CREATE OR REPLACE PACKAGE customer_pkg AS PROCEDURE validate_customer; END;"
-}
-```
+## Próximos pasos
 
-### Response actual
+- Functional summary generation
+- Mejor precisión del parser
+- Mejor soporte para sintaxis Oracle legacy
+- Más code smells
+- Dependency mapping
+- Integración con Ollama
+- Memoria semántica con pgvector
 
-```json
-{
-  "name": "UNKNOWN_OBJECT",
-  "type": "UNKNOWN",
-  "procedures": [],
-  "referencedTables": []
-}
-```
+## Frase clave
 
----
-
-# Probar con curl
-
-```bash
-curl -X POST http://localhost:8080/api/legacy/analyze \
--H "Content-Type: application/json" \
--d '{
-  "sourceCode": "CREATE OR REPLACE PACKAGE customer_pkg AS PROCEDURE validate_customer; END;"
-}'
-```
-
----
-
-# Repositorio
-
-https://github.com/igrios/LegacyMind
+LegacyMind convierte conocimiento tribal en conocimiento persistente.
