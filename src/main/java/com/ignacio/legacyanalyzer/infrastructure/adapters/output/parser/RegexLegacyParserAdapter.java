@@ -1,13 +1,19 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
+import org.springframework.stereotype.Component;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
-
-import org.springframework.stereotype.Component;
 
 @Component
 public class RegexLegacyParserAdapter implements LegacyParserPort {
@@ -16,7 +22,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     public LegacyObject parse(String sourceCode) {
 
         String normalized = sourceCode.toUpperCase();
-
+String sqlWithoutFunctions = normalized.replaceAll("\\b[A-Z_]+\\s*\\([^()]*\\)", " ");
         // =============================
         // NAME + TYPE
         // =============================
@@ -37,9 +43,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         // PROCEDURES
         // =============================
-        Pattern procPattern = Pattern.compile(
-                "\\bPROCEDURE\\s+(\\w+)\\s*(\\(|IS|AS)",
-                Pattern.CASE_INSENSITIVE);
+        Pattern procPattern =
+                Pattern.compile("\\bPROCEDURE\\s+(\\w+)\\s*(\\(|IS|AS)", Pattern.CASE_INSENSITIVE);
 
         Matcher procMatcher = procPattern.matcher(sourceCode);
 
@@ -64,15 +69,38 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         // JOIN / FROM EXTRACTION (SAFE)
         // =============================
-        Pattern joinPattern = Pattern.compile("(FROM|JOIN)\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
-        Matcher joinMatcher = joinPattern.matcher(sourceCode);
+        Pattern fromPattern =
+                Pattern.compile("\\bFROM\\s+([A-Z0-9_\\.]+)", Pattern.CASE_INSENSITIVE);
+        Matcher fromMatcher = fromPattern.matcher(sqlWithoutFunctions);
 
-        while (joinMatcher.find()) {
-            String table = clean(joinMatcher.group(2));
-            if (isLikelyTable(table)) {
+        while (fromMatcher.find()) {
+            String table = fromMatcher.group(1);
+
+            table = table.contains(".") ? table.split("\\.")[1] : table;
+
+            if (isValidTable(table)) {
                 tables.add(table);
             }
         }
+
+//=============================
+// 🔥 SOPORTE JOIN IMPLÍCITO (,)
+// =============================
+Pattern commaPattern = Pattern.compile(",\\s*([A-Z0-9_\\.]+)", Pattern.CASE_INSENSITIVE);
+Matcher commaMatcher = commaPattern.matcher(sqlWithoutFunctions);
+
+while (commaMatcher.find()) {
+
+    String table = commaMatcher.group(1);
+
+    table = table.contains(".") ? table.split("\\.")[1] : table;
+
+    if (isValidTable(table)) {
+        tables.add(table);
+    }
+}
+
+
 
         // =============================
         // UPDATE
@@ -90,7 +118,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         // INSERT
         // =============================
-        Pattern insertPattern = Pattern.compile("INSERT\\s+INTO\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        Pattern insertPattern =
+                Pattern.compile("INSERT\\s+INTO\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
         Matcher insertMatcher = insertPattern.matcher(sourceCode);
 
         while (insertMatcher.find()) {
@@ -100,11 +129,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             }
         }
 
-        List<String> referencedTables = tables.stream()
-                .filter(Objects::nonNull)
-                .filter(s -> !s.isBlank())
-                .distinct()
-                .toList();
+        List<String> referencedTables = tables.stream().filter(Objects::nonNull)
+                .filter(s -> !s.isBlank()).distinct().toList();
 
         // =============================
         // RELACIONES SEMÁNTICAS
@@ -116,10 +142,14 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         List<String> smells = new ArrayList<>();
 
-        if (normalized.contains("SELECT *")) smells.add("SELECT * detected");
-        if (normalized.contains("COMMIT")) smells.add("COMMIT inside procedure");
-        if (normalized.contains("WHEN OTHERS")) smells.add("WHEN OTHERS generic exception handling");
-        if (normalized.contains("EXECUTE IMMEDIATE")) smells.add("Dynamic SQL detected");
+        if (normalized.contains("SELECT *"))
+            smells.add("SELECT * detected");
+        if (normalized.contains("COMMIT"))
+            smells.add("COMMIT inside procedure");
+        if (normalized.contains("WHEN OTHERS"))
+            smells.add("WHEN OTHERS generic exception handling");
+        if (normalized.contains("EXECUTE IMMEDIATE"))
+            smells.add("Dynamic SQL detected");
 
         smells = smells.stream().distinct().toList();
 
@@ -129,10 +159,14 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         int score = 0;
 
         for (String smell : smells) {
-            if (smell.contains("SELECT *")) score += 2;
-            if (smell.contains("COMMIT")) score += 2;
-            if (smell.contains("WHEN OTHERS")) score += 3;
-            if (smell.contains("EXECUTE IMMEDIATE")) score += 4;
+            if (smell.contains("SELECT *"))
+                score += 2;
+            if (smell.contains("COMMIT"))
+                score += 2;
+            if (smell.contains("WHEN OTHERS"))
+                score += 3;
+            if (smell.contains("EXECUTE IMMEDIATE"))
+                score += 4;
         }
 
         String riskLevel = score <= 2 ? "LOW" : score <= 6 ? "MEDIUM" : "HIGH";
@@ -140,22 +174,11 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         // SUMMARY
         // =============================
-        String summary = "The " + type + " " + name +
-                " interacts with " + referencedTables.size() +
-                " tables and has a risk level of " + riskLevel + ".";
+        String summary = "The " + type + " " + name + " interacts with " + referencedTables.size()
+                + " tables and has a risk level of " + riskLevel + ".";
 
-        return new LegacyObject(
-                UUID.randomUUID().toString(),
-                name,
-                type,
-                procedures,
-                referencedTables,
-                sourceCode,
-                smells,
-                score,
-                riskLevel,
-                summary
-        );
+        return new LegacyObject(UUID.randomUUID().toString(), name, type, procedures,
+                referencedTables, sourceCode, smells, score, riskLevel, summary);
     }
 
     // ======================================================
@@ -165,8 +188,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         Map<String, String> aliasToTable = new HashMap<>();
 
-        Pattern fromPattern = Pattern.compile(
-                "FROM\\s+(.*?)\\s+(WHERE|GROUP BY|ORDER BY|$)",
+        Pattern fromPattern = Pattern.compile("FROM\\s+(.*?)\\s+(WHERE|GROUP BY|ORDER BY|$)",
                 Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
         Matcher matcher = fromPattern.matcher(sql);
@@ -179,14 +201,16 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                 String cleaned = table.trim().replaceAll("\\s+", " ");
 
-                if (cleaned.isBlank()) continue;
+                if (cleaned.isBlank())
+                    continue;
 
                 String[] parts = cleaned.split(" ");
 
                 String tableName = clean(parts[0]);
 
                 // 🔥 FILTRO CRÍTICO
-                if (!isLikelyTable(tableName)) continue;
+                if (!isLikelyTable(tableName))
+                    continue;
 
                 if (parts.length == 1) {
                     aliasToTable.put(tableName, tableName);
@@ -202,76 +226,126 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     // ======================================================
     // 🔥 RELACIONES SEMÁNTICAS (ROBUSTO)
     // ======================================================
-    public List<String> extractSemanticRelations(String sql) {
+  // ======================================================
+// 🔥 RELACIONES SEMÁNTICAS (ROBUSTO)
+// ======================================================
+public List<String> extractSemanticRelations(String sql) {
 
-        List<String> relations = new ArrayList<>();
+    List<String> relations = new ArrayList<>();
 
-        String normalized = sql.toUpperCase();
-        String[] statements = normalized.split(";");
+    // 🔹 Normalizar
+    String normalized = sql.toUpperCase();
 
-        Pattern insertPattern = Pattern.compile("INSERT\\s+INTO\\s+(\\w+)");
-        Pattern updatePattern = Pattern.compile("UPDATE\\s+(\\w+)");
+    // 🔥 Limpiar funciones (EXTRACT, COUNT, etc.)
+    String sqlWithoutFunctions = normalized.replaceAll(
+        "\\b[A-Z_]+\\s*\\([^()]*\\)", " "
+    );
 
-        Pattern fromPattern = Pattern.compile(
-                "FROM\\s+([A-Z0-9_,\\s]+?)(WHERE|GROUP|ORDER|\\)|$)"
-        );
+    // 🔹 Separar statements
+    String[] statements = sqlWithoutFunctions.split(";");
 
-        for (String stmt : statements) {
+    Pattern insertPattern = Pattern.compile("INSERT\\s+INTO\\s+(\\w+)");
+    Pattern updatePattern = Pattern.compile("UPDATE\\s+(\\w+)");
 
-            Matcher insertMatcher = insertPattern.matcher(stmt);
-            Matcher fromMatcher = fromPattern.matcher(stmt);
+    Pattern fromPattern = Pattern.compile(
+        "\\bFROM\\s+([^\\(]*?)(WHERE|GROUP BY|ORDER BY|$)",
+        Pattern.CASE_INSENSITIVE
+    );
 
-            if (insertMatcher.find() && fromMatcher.find()) {
+    for (String stmt : statements) {
 
-                String target = clean(insertMatcher.group(1));
+        // =============================
+        // INSERT INTO ... SELECT ...
+        // =============================
+        Matcher insertMatcher = insertPattern.matcher(stmt);
+        Matcher fromMatcher = fromPattern.matcher(stmt);
 
-                for (String source : extractTables(fromMatcher.group(1))) {
-                    relations.add(source + "->" + target);
-                }
-            }
+        if (insertMatcher.find() && fromMatcher.find()) {
 
-            Matcher updateMatcher = updatePattern.matcher(stmt);
+            String target = clean(insertMatcher.group(1));
 
-            if (updateMatcher.find()) {
+            Set<String> sources = extractTables(fromMatcher.group(1));
 
-                String target = clean(updateMatcher.group(1));
-
-                Matcher subFromMatcher = fromPattern.matcher(stmt);
-
-                if (subFromMatcher.find()) {
-
-                    for (String source : extractTables(subFromMatcher.group(1))) {
-                        relations.add(source + "->" + target);
-                    }
-                }
+            for (String source : sources) {
+                relations.add(source + "->" + target);
             }
         }
 
-        return relations;
+        // =============================
+        // UPDATE ... FROM ...
+        // =============================
+        Matcher updateMatcher = updatePattern.matcher(stmt);
+
+        if (updateMatcher.find()) {
+
+            String target = clean(updateMatcher.group(1));
+
+            Matcher subFromMatcher = fromPattern.matcher(stmt);
+
+            if (subFromMatcher.find()) {
+
+                Set<String> sources = extractTables(subFromMatcher.group(1));
+
+                for (String source : sources) {
+                    relations.add(source + "->" + target);
+                }
+            }
+        }
     }
 
-    private List<String> extractTables(String raw) {
-        return Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .map(this::clean)
-                .filter(this::isLikelyTable)
-                .distinct()
-                .toList();
+    return relations;
+}
+
+
+
+
+ private Set<String> extractTables(String fromClause) {
+
+    Set<String> tables = new HashSet<>();
+
+    String[] parts = fromClause.split(",");
+
+    for (String part : parts) {
+
+        String cleaned = part.trim().replaceAll("\\s+", " ");
+
+        if (cleaned.isBlank())
+            continue;
+
+        String table = cleaned.split(" ")[0];
+
+        if (table.contains(".")) {
+            table = table.split("\\.")[1];
+        }
+
+        table = clean(table);
+
+        if (isValidTable(table)) {
+            tables.add(table);
+        }
     }
+
+    return tables;
+}
 
     private String clean(String table) {
         return table.replaceAll("[^A-Z0-9_]", "");
     }
 
     private boolean isLikelyTable(String name) {
-        return name != null
-                && name.matches("[A-Z_][A-Z0-9_]*")
-                && !name.contains("SYSDATE")
-                && !name.contains("DUAL")
-                && !name.contains("COUNT")
-                && !name.contains("SUM")
-                && !name.contains("EXTRACT")
-                && !name.contains("MONTH")
-                && !name.contains("YEAR");
+        return name != null && name.matches("[A-Z_][A-Z0-9_]*") && !name.contains("SYSDATE")
+                && !name.contains("DUAL") && !name.contains("COUNT") && !name.contains("SUM")
+                && !name.contains("EXTRACT") && !name.contains("MONTH") && !name.contains("YEAR");
     }
+private boolean isValidTable(String table) {
+    return table != null
+        && table.matches("[A-Z][A-Z0-9_]*")
+        && !table.startsWith("P_")
+        && !table.startsWith("V_")
+        && !table.equals("SYSDATE")
+        && !table.equals("DESC")         // 🔥 nuevo
+        && !table.equals("COUNT")
+        && !table.equals("SUM")
+        && table.length() > 4;           // 🔥 clave
+}
 }
