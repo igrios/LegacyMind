@@ -10,6 +10,9 @@ import java.util.Queue;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
 @Service
 public class ImpactAnalysisService {
@@ -100,6 +103,36 @@ public Map<Integer, Set<String>> getImpactByLevels(String startTable) {
     }
 
     return levels;
+}
+public List<List<String>> getAllPaths(String startTable) {
+
+    List<List<String>> paths = new ArrayList<>();
+    LinkedList<String> currentPath = new LinkedList<>();
+
+    dfs(startTable, currentPath, paths);
+
+    return paths;
+}
+private void dfs(String current,
+                 LinkedList<String> path,
+                 List<List<String>> paths) {
+
+    path.add(current);
+
+    List<String> neighbors =
+            dependencyRepositoryPort.findTargetsBySource(current);
+
+    if (neighbors.isEmpty()) {
+        paths.add(new ArrayList<>(path));
+    } else {
+        for (String next : neighbors) {
+            if (!path.contains(next)) {
+                dfs(next, path, paths);
+            }
+        }
+    }
+
+    path.removeLast();
 }
 
     

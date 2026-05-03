@@ -1,8 +1,9 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.junit.jupiter.api.Test;
+
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 
 class RegexLegacyParserAdapterTest {
@@ -23,8 +24,10 @@ class RegexLegacyParserAdapterTest {
 
         LegacyObject result = parser.parse(sql);
 
+        assertNotNull(result);
         assertEquals("TEST_PROC", result.getName());
         assertEquals("PROCEDURE", result.getType());
+
         assertTrue(result.getReferencedTables().contains("CUSTOMERS"));
         assertTrue(result.getReferencedTables().contains("ORDERS"));
     }
@@ -46,8 +49,10 @@ class RegexLegacyParserAdapterTest {
 
         LegacyObject result = parser.parse(sql);
 
+        assertNotNull(result);
         assertEquals("RISK_PROC", result.getName());
         assertEquals("PROCEDURE", result.getType());
+
         assertEquals("HIGH", result.getRiskLevel());
         assertTrue(result.getRiskScore() >= 7);
     }
@@ -64,9 +69,39 @@ class RegexLegacyParserAdapterTest {
 
         LegacyObject result = parser.parse(sql);
 
+        assertNotNull(result);
         assertEquals("CLEAN_FUNC", result.getName());
         assertEquals("FUNCTION", result.getType());
+
         assertEquals("LOW", result.getRiskLevel());
         assertTrue(result.getCodeSmells().isEmpty());
+    }
+
+    @Test
+    void shouldExtractSemanticRelationsFromInsertSelect() {
+
+        String sql = """
+            INSERT INTO TBL_FACTURAS
+            SELECT * FROM TBL_PEDIDOS;
+        """;
+
+        var relations = parser.extractSemanticRelations(sql);
+
+        assertNotNull(relations);
+        assertTrue(relations.contains("TBL_PEDIDOS->TBL_FACTURAS"));
+    }
+
+    @Test
+    void shouldExtractMultipleSourcesFromInsert() {
+
+        String sql = """
+            INSERT INTO TBL_A
+            SELECT * FROM TBL_B, TBL_C;
+        """;
+
+        var relations = parser.extractSemanticRelations(sql);
+
+        assertTrue(relations.contains("TBL_B->TBL_A"));
+        assertTrue(relations.contains("TBL_C->TBL_A"));
     }
 }

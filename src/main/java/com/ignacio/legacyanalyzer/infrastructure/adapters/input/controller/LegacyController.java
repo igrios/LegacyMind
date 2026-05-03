@@ -18,10 +18,12 @@ import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
 import com.ignacio.legacyanalyzer.domain.services.DependencyAnalyzerService;
+import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
 import java.util.Map;
+
 
 @RestController
 @RequestMapping("/api/legacy")
@@ -33,7 +35,7 @@ public class LegacyController {
     private final TableDependencyRepositoryPort dependencyPort;
     private final DependencyAnalyzerService analyzerService;
     private final GetImpactByLevelsUseCase getImpactByLevelsUseCase;
-
+    private final ImpactAnalysisService impactService;    
 
     public LegacyController(
             LegacyObjectRepository repository,
@@ -41,7 +43,8 @@ public class LegacyController {
             GetImpactUseCase getImpactUseCase,
             TableDependencyRepositoryPort dependencyPort,
             DependencyAnalyzerService analyzerService,
-            GetImpactByLevelsUseCase getImpactByLevelsUseCase) {
+            GetImpactByLevelsUseCase getImpactByLevelsUseCase,
+            ImpactAnalysisService impactService) {
 
         this.repository = repository;
         this.parserAdapter = parserAdapter;
@@ -49,6 +52,7 @@ public class LegacyController {
         this.dependencyPort = dependencyPort;
         this.analyzerService = analyzerService;             
         this.getImpactByLevelsUseCase = getImpactByLevelsUseCase;
+        this.impactService = impactService;
 
     }
 
@@ -60,15 +64,23 @@ public class LegacyController {
                // 1. Parseo
     LegacyObject object = parserAdapter.parse(request.getSourceCode());
 
-    // 🔥 2. GENERAR DEPENDENCIAS (NUEVO)
-    List<TableDependency> dependencies =
-            analyzerService.buildDependencies(
-                    object.getReferencedTables(),
-                    object.getName()
-            );
+  // 🔥 2. GENERAR RELACIONES SEMÁNTICAS
+List<String> relations = parserAdapter.extractSemanticRelations(request.getSourceCode());
 
-    // 🔥 3. GUARDAR DEPENDENCIAS (NUEVO)
-   dependencyPort.saveAll(dependencies);
+// 🔥 3. GENERAR DEPENDENCIAS (nuevo modelo)
+List<TableDependency> dependencies;
+
+if (!relations.isEmpty()) {
+    dependencies = analyzerService.buildFromRelations(relations, object.getName());
+} else {
+    dependencies = analyzerService.buildDependencies(
+            object.getReferencedTables(),
+            object.getName()
+    );
+}
+
+// 🔥 4. GUARDAR DEPENDENCIAS
+dependencyPort.saveAllDependencies(dependencies);
 
     // 4. Persistir objeto (lo que ya tenías)
     LegacyObjectEntity entity = new LegacyObjectEntity(
@@ -141,6 +153,12 @@ public ResponseEntity<Map<Integer, Set<String>>> getImpactByLevels(@PathVariable
     return ResponseEntity.ok(getImpactByLevelsUseCase.execute(table));
 }
 
+
+
+@GetMapping("/impact/paths/{table}")
+public ResponseEntity<List<List<String>>> getPaths(@PathVariable String table) {
+    return ResponseEntity.ok(impactService.getAllPaths(table));
+}
 
 
 

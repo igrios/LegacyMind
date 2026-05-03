@@ -35,4 +35,23 @@ public class DependencyAnalyzerService {
     private String clean(String table) {
         return table.replaceAll("[^a-zA-Z0-9_]", "").toUpperCase().trim();
     }
+
+		public List<TableDependency> buildFromRelations(List<String> relations, String objectName) {
+
+    List<TableDependency> dependencies = new ArrayList<>();
+
+    for (String rel : relations) {
+
+        String[] parts = rel.split("->");
+
+        if (parts.length == 2) {
+            String source = clean(parts[0]);
+            String target = clean(parts[1]);
+
+            dependencies.add(new TableDependency(source, target, objectName));
+        }
+    }
+
+    return dependencies;
+}
 }

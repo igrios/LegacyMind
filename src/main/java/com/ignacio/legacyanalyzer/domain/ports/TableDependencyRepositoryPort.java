@@ -9,7 +9,8 @@ public interface TableDependencyRepositoryPort {
 
     void saveAll(List<TableDependency> dependencies); // 🔥 ESTE NOMBRE
 
-   List<TableDependency> findBySourceTable(String table);
+    List<TableDependency> findBySourceTable(String table);
 
     List<String> findTargetsBySource(String sourceTable);
+    void saveAllDependencies(List<TableDependency> dependencies);
 }

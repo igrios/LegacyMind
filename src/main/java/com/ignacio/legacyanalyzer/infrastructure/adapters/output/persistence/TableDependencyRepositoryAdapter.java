@@ -53,7 +53,19 @@ public class TableDependencyRepositoryAdapter implements TableDependencyReposito
     repository.save(entity);
   }
   
+@Override
+public void saveAllDependencies(List<TableDependency> dependencies) {
 
+    List<TableDependencyEntity> entities = dependencies.stream()
+        .map(d -> new TableDependencyEntity(
+            d.getSourceTable(),
+            d.getTargetTable(),
+            d.getObjectName()
+        ))
+        .toList();
+
+    repository.saveAll(entities);
+}
 
 
 }
