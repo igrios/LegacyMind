@@ -11,7 +11,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
+import org.springframework.stereotype.Component;
 
+@Component
 public class RegexLegacyParserAdapter implements LegacyParserPort {
 
     @Override
@@ -22,23 +24,46 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // ----------------------------
         // NAME + TYPE
         // ----------------------------
+        // ----------------------------
+        // NAME + TYPE
+        // ----------------------------
         String name = null;
         String type = null;
+        boolean isBody = false;
 
-        Pattern namePattern =
-                Pattern.compile("(PROCEDURE|FUNCTION|PACKAGE)\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        Pattern namePattern = Pattern.compile(
+                "CREATE\\s+OR\\s+REPLACE\\s+(PACKAGE|PROCEDURE|FUNCTION)\\s+(BODY\\s+)?(\\w+)",
+                Pattern.CASE_INSENSITIVE);
 
         Matcher nameMatcher = namePattern.matcher(sourceCode);
 
         if (nameMatcher.find()) {
             type = nameMatcher.group(1).toUpperCase();
-            name = nameMatcher.group(2).toUpperCase();
+            isBody = nameMatcher.group(2) != null;
+            name = nameMatcher.group(3).toUpperCase();
         }
 
         // ----------------------------
-        // PROCEDURES
+        // PROCEDURES (FIX REAL)
         // ----------------------------
-        List<String> procedures = name != null ? List.of(name) : List.of();
+        Pattern procPattern =
+                Pattern.compile("\\bPROCEDURE\\s+(\\w+)\\s*(\\(|IS|AS)", Pattern.CASE_INSENSITIVE);
+
+        Matcher procMatcher = procPattern.matcher(sourceCode);
+
+        List<String> procedures = new ArrayList<>();
+
+        while (procMatcher.find()) {
+            String procName = procMatcher.group(1).toUpperCase();
+
+            // evitar falsos positivos (ej: nombre del package)
+            if (name == null || !procName.equalsIgnoreCase(name)) {
+                procedures.add(procName);
+            }
+        }
+
+        // eliminar duplicados
+        procedures = procedures.stream().distinct().toList();
 
         // ----------------------------
         // TABLES + ALIAS (IMPLICIT JOIN SUPPORT)
@@ -110,7 +135,10 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         if (normalized.contains("EXECUTE IMMEDIATE")) {
             smells.add("Dynamic SQL detected (EXECUTE IMMEDIATE)");
         }
-
+        smells = smells.stream()
+    .filter(s -> s != null && !s.trim().isEmpty())
+    .distinct()
+    .toList();
         // ----------------------------
         // RISK SCORE
         // ----------------------------
@@ -184,6 +212,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 }
             }
         }
+
 
         return aliasToTable;
     }

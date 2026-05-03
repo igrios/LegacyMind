@@ -1,9 +1,9 @@
 package com.ignacio.legacyanalyzer.domain.services;
 
-import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 
 @Service
 public class DependencyAnalyzerService {
@@ -12,17 +12,27 @@ public class DependencyAnalyzerService {
 
         List<TableDependency> dependencies = new ArrayList<>();
 
-        for (int i = 0; i < tables.size() - 1; i++) {
+        List<String> cleaned = tables.stream()
+                .map(this::clean)
+                .filter(s -> !s.isBlank())
+                .distinct()
+                .toList();
 
-            dependencies.add(
-                    new TableDependency(
-                            tables.get(i),
-                            tables.get(i + 1),
-                            objectName
-                    )
-            );
+        // 🔥 GRAFO SECUENCIAL (clave)
+        for (int i = 0; i < cleaned.size() - 1; i++) {
+
+            String source = cleaned.get(i + 1);
+            String target = cleaned.get(i);
+
+            if (!source.equals(target)) {
+                dependencies.add(new TableDependency(source, target, objectName));
+            }
         }
 
         return dependencies;
+    }
+
+    private String clean(String table) {
+        return table.replaceAll("[^a-zA-Z0-9_]", "").toUpperCase().trim();
     }
 }
