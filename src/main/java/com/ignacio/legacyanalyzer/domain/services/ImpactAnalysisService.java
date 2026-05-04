@@ -1,5 +1,6 @@
 package com.ignacio.legacyanalyzer.domain.services;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -9,10 +10,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import org.springframework.stereotype.Service;
+import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 
 @Service
 public class ImpactAnalysisService {
@@ -45,29 +44,38 @@ public class ImpactAnalysisService {
         return visited;
     }
 
-public Set<String> getImpact(String startTable) {
+public Set<String> getImpact(String table) {
 
-    Set<String> visited = new LinkedHashSet<>();
+    Set<String> visited = new HashSet<>();
     Queue<String> queue = new LinkedList<>();
 
-    queue.add(startTable);
-    visited.add(startTable);
+    table = table.toUpperCase();
+
+    queue.add(table);
+    visited.add(table);
 
     while (!queue.isEmpty()) {
+
         String current = queue.poll();
 
-        List<String> neighbors = dependencyRepositoryPort.findTargetsBySource(current);
+        // 🔥 SOLO source → target
+        List<TableDependency> deps = repository.findBySourceTable(current);
 
-        for (String neighbor : neighbors) {
-            if (!visited.contains(neighbor)) {
-                visited.add(neighbor);
-                queue.add(neighbor);
+        for (TableDependency dep : deps) {
+
+            String next = dep.getTargetTable();
+
+            if (!visited.contains(next)) {
+                visited.add(next);
+                queue.add(next);
             }
         }
     }
 
     return visited;
 }
+
+
 public Map<Integer, Set<String>> getImpactByLevels(String startTable) {
 
     Map<Integer, Set<String>> levels = new LinkedHashMap<>();

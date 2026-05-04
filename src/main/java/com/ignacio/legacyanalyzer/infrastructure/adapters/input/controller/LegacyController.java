@@ -2,6 +2,7 @@ package com.ignacio.legacyanalyzer.infrastructure.adapters.input.controller;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,94 +23,69 @@ import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
-import java.util.Map;
 
 
 @RestController
 @RequestMapping("/api/legacy")
 public class LegacyController {
 
-    private final RegexLegacyParserAdapter parserAdapter;
-    private final LegacyObjectRepository repository;
-    private final GetImpactUseCase getImpactUseCase;
-    private final TableDependencyRepositoryPort dependencyPort;
-    private final DependencyAnalyzerService analyzerService;
-    private final GetImpactByLevelsUseCase getImpactByLevelsUseCase;
-    private final ImpactAnalysisService impactService;    
+        private final RegexLegacyParserAdapter parserAdapter;
+        private final LegacyObjectRepository repository;
+        private final GetImpactUseCase getImpactUseCase;
+        private final TableDependencyRepositoryPort dependencyPort;
+        private final DependencyAnalyzerService analyzerService;
+        private final GetImpactByLevelsUseCase getImpactByLevelsUseCase;
+        private final ImpactAnalysisService impactService;
 
-    public LegacyController(
-            LegacyObjectRepository repository,
-            RegexLegacyParserAdapter parserAdapter,
-            GetImpactUseCase getImpactUseCase,
-            TableDependencyRepositoryPort dependencyPort,
-            DependencyAnalyzerService analyzerService,
-            GetImpactByLevelsUseCase getImpactByLevelsUseCase,
-            ImpactAnalysisService impactService) {
+        public LegacyController(LegacyObjectRepository repository,
+                        RegexLegacyParserAdapter parserAdapter, GetImpactUseCase getImpactUseCase,
+                        TableDependencyRepositoryPort dependencyPort,
+                        DependencyAnalyzerService analyzerService,
+                        GetImpactByLevelsUseCase getImpactByLevelsUseCase,
+                        ImpactAnalysisService impactService) {
 
-        this.repository = repository;
-        this.parserAdapter = parserAdapter;
-        this.getImpactUseCase = getImpactUseCase;   
-        this.dependencyPort = dependencyPort;
-        this.analyzerService = analyzerService;             
-        this.getImpactByLevelsUseCase = getImpactByLevelsUseCase;
-        this.impactService = impactService;
+                this.repository = repository;
+                this.parserAdapter = parserAdapter;
+                this.getImpactUseCase = getImpactUseCase;
+                this.dependencyPort = dependencyPort;
+                this.analyzerService = analyzerService;
+                this.getImpactByLevelsUseCase = getImpactByLevelsUseCase;
+                this.impactService = impactService;
 
-    }
+        }
 
 
 
         @PostMapping("/analyze")
         public AnalyzeLegacyResponse analyze(@RequestBody AnalyzeLegacyRequest request) {
 
-               // 1. Parseo
-    LegacyObject object = parserAdapter.parse(request.getSourceCode());
+                // 1. Parseo
+                LegacyObject object = parserAdapter.parse(request.getSourceCode());
 
-  // 🔥 2. GENERAR RELACIONES SEMÁNTICAS
-List<String> relations = parserAdapter.extractSemanticRelations(request.getSourceCode());
+                // 2. Relaciones semánticas
+                List<String> relations =
+                                parserAdapter.extractSemanticRelations(request.getSourceCode());
 
-// 🔥 3. GENERAR DEPENDENCIAS (nuevo modelo)
-List<TableDependency> dependencies;
+                // 3. Dependencias (SIN fallback)
+                List<TableDependency> dependencies =
+                                analyzerService.buildFromRelations(relations, object.getName());
 
-if (!relations.isEmpty()) {
-    dependencies = analyzerService.buildFromRelations(relations, object.getName());
-} else {
-    dependencies = analyzerService.buildDependencies(
-            object.getReferencedTables(),
-            object.getName()
-    );
-}
+                dependencyPort.saveAllDependencies(dependencies);
+                LegacyObjectEntity entity = new LegacyObjectEntity(object.getId(), object.getName(),
+                                object.getType(), object.getSourceCode(),
+                                String.join(",", object.getProcedures()),
+                                String.join(",", object.getReferencedTables()),
+                                String.join(",", object.getCodeSmells()), object.getRiskScore(),
+                                object.getRiskLevel(), object.getFunctionalSummary(),
+                                LocalDateTime.now());
 
-// 🔥 4. GUARDAR DEPENDENCIAS
-dependencyPort.saveAllDependencies(dependencies);
+                repository.save(entity);
 
-    // 4. Persistir objeto (lo que ya tenías)
-    LegacyObjectEntity entity = new LegacyObjectEntity(
-            object.getId(),
-            object.getName(),
-            object.getType(),
-            object.getSourceCode(),
-            String.join(",", object.getProcedures()),
-            String.join(",", object.getReferencedTables()),
-            String.join(",", object.getCodeSmells()),
-            object.getRiskScore(),
-            object.getRiskLevel(),
-            object.getFunctionalSummary(),
-            LocalDateTime.now()
-    );
-
-    repository.save(entity);
-
-    // 5. Response
-    return new AnalyzeLegacyResponse(
-            object.getName(),
-            object.getType(),
-            object.getProcedures(),
-            object.getReferencedTables(),
-            object.getCodeSmells(),
-            object.getRiskScore(),
-            object.getRiskLevel(),
-            object.getFunctionalSummary()
-    );
+                // 5. Response
+                return new AnalyzeLegacyResponse(object.getName(), object.getType(),
+                                object.getProcedures(), object.getReferencedTables(),
+                                object.getCodeSmells(), object.getRiskScore(),
+                                object.getRiskLevel(), object.getFunctionalSummary());
         }
 
         @GetMapping("/history")
@@ -140,25 +116,26 @@ dependencyPort.saveAllDependencies(dependencies);
                 )).toList();
         }
 
-  // Endpoint de impacto en cascada
-    @GetMapping("/impact/{table}")
-    public ResponseEntity<Set<String>> getImpact(@PathVariable String table) {
-        Set<String> result = getImpactUseCase.execute(table);
-        return ResponseEntity.ok(result);
-    }
+        // Endpoint de impacto en cascada
+        @GetMapping("/impact/{table}")
+        public ResponseEntity<Set<String>> getImpact(@PathVariable String table) {
+                Set<String> result = getImpactUseCase.execute(table);
+                return ResponseEntity.ok(result);
+        }
 
 
-@GetMapping("/impact/levels/{table}")
-public ResponseEntity<Map<Integer, Set<String>>> getImpactByLevels(@PathVariable String table) {
-    return ResponseEntity.ok(getImpactByLevelsUseCase.execute(table));
-}
+        @GetMapping("/impact/levels/{table}")
+        public ResponseEntity<Map<Integer, Set<String>>> getImpactByLevels(
+                        @PathVariable String table) {
+                return ResponseEntity.ok(getImpactByLevelsUseCase.execute(table));
+        }
 
 
 
-@GetMapping("/impact/paths/{table}")
-public ResponseEntity<List<List<String>>> getPaths(@PathVariable String table) {
-    return ResponseEntity.ok(impactService.getAllPaths(table));
-}
+        @GetMapping("/impact/paths/{table}")
+        public ResponseEntity<List<List<String>>> getPaths(@PathVariable String table) {
+                return ResponseEntity.ok(impactService.getAllPaths(table));
+        }
 
 
 
