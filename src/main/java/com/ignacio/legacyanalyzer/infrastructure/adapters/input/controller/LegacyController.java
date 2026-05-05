@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
+import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactUseCase;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.TableDependency;
@@ -36,13 +37,16 @@ public class LegacyController {
         private final DependencyAnalyzerService analyzerService;
         private final GetImpactByLevelsUseCase getImpactByLevelsUseCase;
         private final ImpactAnalysisService impactService;
+        private final GetImpactGraphUseCase getImpactGraphUseCase;
 
         public LegacyController(LegacyObjectRepository repository,
-                        RegexLegacyParserAdapter parserAdapter, GetImpactUseCase getImpactUseCase,
+                        RegexLegacyParserAdapter parserAdapter, 
+                        GetImpactUseCase getImpactUseCase,
                         TableDependencyRepositoryPort dependencyPort,
                         DependencyAnalyzerService analyzerService,
                         GetImpactByLevelsUseCase getImpactByLevelsUseCase,
-                        ImpactAnalysisService impactService) {
+                        ImpactAnalysisService impactService,
+                        GetImpactGraphUseCase getImpactGraphUseCase) {
 
                 this.repository = repository;
                 this.parserAdapter = parserAdapter;
@@ -51,6 +55,7 @@ public class LegacyController {
                 this.analyzerService = analyzerService;
                 this.getImpactByLevelsUseCase = getImpactByLevelsUseCase;
                 this.impactService = impactService;
+                this.getImpactGraphUseCase = getImpactGraphUseCase;
 
         }
 
@@ -136,6 +141,13 @@ public class LegacyController {
         public ResponseEntity<List<List<String>>> getPaths(@PathVariable String table) {
                 return ResponseEntity.ok(impactService.getAllPaths(table));
         }
+
+
+
+@GetMapping("/impact/graph/{table}")
+public Map<String, Object> getGraph(@PathVariable String table) {
+    return getImpactGraphUseCase.execute(table);
+}
 
 
 

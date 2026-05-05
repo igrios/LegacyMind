@@ -1,9 +1,11 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -21,7 +23,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         String normalized = sourceCode.toUpperCase();
 
-        // 🔥 limpio SOLO para FROM
+        // limpiar funciones tipo EXTRACT(...)
         String sql = normalized.replaceAll("\\b[A-Z_]+\\s*\\([^()]*\\)", " ");
 
         // =============================
@@ -62,9 +64,9 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         Set<String> tables = new HashSet<>();
 
-        extractFromTables(sql, tables); // ✔ limpio
-        extractUpdateTables(normalized, tables); // ✔ original
-        extractInsertTables(normalized, tables); // ✔ original
+        extractFromTables(sql, tables);
+        extractUpdateTables(normalized, tables);
+        extractInsertTables(normalized, tables);
 
         List<String> referencedTables = tables.stream().filter(Objects::nonNull)
                 .filter(s -> !s.isBlank()).distinct().toList();
@@ -85,10 +87,6 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             smells.add("COMMIT inside procedure");
         if (normalized.contains("WHEN OTHERS"))
             smells.add("WHEN OTHERS generic exception handling");
-        if (normalized.contains("EXECUTE IMMEDIATE"))
-            smells.add("Dynamic SQL detected");
-
-        smells = smells.stream().distinct().toList();
 
         int score = smells.stream().mapToInt(s -> {
             if (s.contains("SELECT *"))
@@ -97,8 +95,6 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 return 2;
             if (s.contains("WHEN OTHERS"))
                 return 3;
-            if (s.contains("EXECUTE IMMEDIATE"))
-                return 4;
             return 0;
         }).sum();
 
@@ -112,8 +108,124 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     }
 
     // =============================
-    // FROM
+    // SEMANTIC RELATIONS
     // =============================
+    public List<String> extractSemanticRelations(String sql) {
+
+        Set<String> relations = new LinkedHashSet<>();
+
+        sql = sql.replace("\n", " ").replace("\r", " ").toUpperCase();
+
+        Pattern updatePattern = Pattern.compile("\\bUPDATE\\s+(\\w+)");
+        Pattern insertPattern = Pattern.compile("\\bINSERT\\s+INTO\\s+(\\w+)");
+        Pattern fromPattern = Pattern.compile("\\bFROM\\s+([^;]+?)(WHERE|GROUP BY|ORDER BY|$)",
+                Pattern.CASE_INSENSITIVE);
+
+        String mainTable = detectMainTable(sql);
+
+        String[] statements = sql.split(";");
+
+        for (String stmt : statements) {
+
+            // =============================
+            // UPDATE
+            // =============================
+            Matcher update = updatePattern.matcher(stmt);
+            if (update.find()) {
+
+                String target = clean(update.group(1));
+
+                if (isValidTable(target) && mainTable != null && !target.equals(mainTable)) {
+                    relations.add(mainTable + "->" + target);
+                }
+            }
+
+            // =============================
+            // INSERT
+            // =============================
+            Matcher insert = insertPattern.matcher(stmt);
+            if (insert.find()) {
+
+                String target = clean(insert.group(1));
+
+                if (!isValidTable(target))
+                    continue;
+
+                Matcher from = fromPattern.matcher(stmt);
+
+                if (from.find()) {
+                    String clause = from.group(1);
+
+                    Set<String> sources = extractTables(clause);
+
+                    for (String src : sources) {
+                        if (!src.equals(target)) {
+                            relations.add(src + "->" + target);
+                        }
+                    }
+
+                } else {
+                    if (mainTable != null && !mainTable.equals(target)) {
+                        relations.add(mainTable + "->" + target);
+                    }
+                }
+            }
+        }
+
+        System.out.println("RELATIONS >>> " + relations);
+
+        return new ArrayList<>(relations);
+    }
+
+    // =============================
+    // DETECT MAIN TABLE
+    // =============================
+    private String detectMainTable(String sql) {
+
+        // 🥇 PRIORIDAD 1 → primer UPDATE (flujo principal)
+        Pattern updatePattern = Pattern.compile("\\bUPDATE\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        Matcher m = updatePattern.matcher(sql);
+
+        if (m.find()) {
+            return clean(m.group(1));
+        }
+
+        // 🥈 PRIORIDAD 2 → frecuencia (fallback)
+        Map<String, Integer> frequency = new HashMap<>();
+
+        Pattern fromPattern = Pattern.compile("\\bFROM\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        m = fromPattern.matcher(sql);
+
+        while (m.find()) {
+            String table = clean(m.group(1));
+            frequency.put(table, frequency.getOrDefault(table, 0) + 1);
+        }
+
+        return frequency.entrySet().stream().max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey).orElse(null);
+    }
+
+    // =============================
+    // HELPERS
+    // =============================
+    private Set<String> extractTables(String clause) {
+
+        Set<String> tables = new HashSet<>();
+
+        for (String part : clause.split(",")) {
+
+            String table = part.trim().split(" ")[0];
+
+            if (table.contains(".")) {
+                table = table.split("\\.")[1];
+            }
+
+            addIfValid(table, tables);
+        }
+
+        return tables;
+    }
+
     private void extractFromTables(String sql, Set<String> tables) {
 
         Matcher matcher =
@@ -123,21 +235,13 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
             String clause = matcher.group(1);
 
-            // cortar en WHERE/GROUP/ORDER si existen
             clause = clause.split("WHERE")[0];
             clause = clause.split("GROUP BY")[0];
             clause = clause.split("ORDER BY")[0];
 
-            String[] parts = clause.split(",");
+            for (String part : clause.split(",")) {
 
-            for (String part : parts) {
-
-                String cleaned = part.trim().replaceAll("\\s+", " ");
-
-                if (cleaned.isBlank())
-                    continue;
-
-                String table = cleaned.split(" ")[0];
+                String table = part.trim().split(" ")[0];
 
                 if (table.contains(".")) {
                     table = table.split("\\.")[1];
@@ -148,115 +252,30 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         }
     }
 
-    // =============================
-    // UPDATE
-    // =============================
-    private void extractUpdateTables(String normalized, Set<String> tables) {
+    private void extractUpdateTables(String sql, Set<String> tables) {
 
-        Matcher matcher = Pattern.compile("\\bUPDATE\\s+([A-Z0-9_\\.]+)", Pattern.CASE_INSENSITIVE)
-                .matcher(normalized);
+        Matcher matcher =
+                Pattern.compile("\\bUPDATE\\s+(\\w+)", Pattern.CASE_INSENSITIVE).matcher(sql);
 
         while (matcher.find()) {
             addIfValid(matcher.group(1), tables);
         }
     }
 
-    // =============================
-    // INSERT
-    // =============================
-    private void extractInsertTables(String normalized, Set<String> tables) {
+    private void extractInsertTables(String sql, Set<String> tables) {
 
-        Matcher matcher =
-                Pattern.compile("\\bINSERT\\s+INTO\\s+([A-Z0-9_\\.]+)", Pattern.CASE_INSENSITIVE)
-                        .matcher(normalized);
+        Matcher matcher = Pattern.compile("\\bINSERT\\s+INTO\\s+(\\w+)", Pattern.CASE_INSENSITIVE)
+                .matcher(sql);
 
         while (matcher.find()) {
-
-            String table = matcher.group(1);
-
-            if (table.contains(".")) {
-                table = table.split("\\.")[1];
-            }
-
-            addIfValid(table, tables);
+            addIfValid(matcher.group(1), tables);
         }
-    }
-
-public List<String> extractSemanticRelations(String sql) {
-
-    Set<String> relations = new LinkedHashSet<>();
-
-    sql = sql.replace("\n", " ")
-             .replace("\r", " ")
-             .toUpperCase();
-
-    Pattern updatePattern = Pattern.compile("\\bUPDATE\\s+(\\w+)");
-    Pattern insertPattern = Pattern.compile("\\bINSERT\\s+INTO\\s+(\\w+)");
-    Pattern fromPattern = Pattern.compile("\\bFROM\\s+(\\w+)");
-
-    String[] statements = sql.split(";");
-
-    for (String stmt : statements) {
-
-        // UPDATE
-        Matcher update = updatePattern.matcher(stmt);
-        if (update.find()) {
-            String target = clean(update.group(1));
-
-            if (isValidTable(target) && !target.equals("VENTAS")) {
-                relations.add("VENTAS->" + target);
-            }
-        }
-
-        // INSERT
-        Matcher insert = insertPattern.matcher(stmt);
-        if (insert.find()) {
-
-            String target = clean(insert.group(1));
-
-            if (!isValidTable(target)) continue;
-
-            Matcher from = fromPattern.matcher(stmt);
-
-            if (from.find()) {
-                String source = clean(from.group(1));
-
-                if (isValidTable(source) && !source.equals(target)) {
-                    relations.add(source + "->" + target);
-                }
-            } else {
-                relations.add("VENTAS->" + target);
-            }
-        }
-    }
-
-    System.out.println("RELATIONS >>> " + relations);
-
-    return new ArrayList<>(relations);
-}
-
-
-
-    private Set<String> extractTables(String clause) {
-
-        Set<String> tables = new HashSet<>();
-
-        for (String part : clause.split(",")) {
-            String table = part.trim().split(" ")[0];
-            addIfValid(table, tables);
-        }
-
-        return tables;
     }
 
     private void addIfValid(String table, Set<String> tables) {
 
         if (table == null)
             return;
-
-        if (table.contains(".")) {
-            table = table.split("\\.")[1];
-        }
 
         table = clean(table);
 
@@ -269,18 +288,10 @@ public List<String> extractSemanticRelations(String sql) {
         return table.replaceAll("[^A-Z0-9_]", "");
     }
 
-    private static final Set<String> SQL_KEYWORDS = Set.of("SELECT", "FROM", "WHERE", "INSERT",
-            "INTO", "VALUES", "UPDATE", "SET", "DELETE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER",
-            "ON", "AND", "OR", "NOT", "NULL", "GROUP", "BY", "ORDER", "HAVING", "SYSDATE", "DUAL",
-            "COUNT", "SUM", "AVG", "EXTRACT", "MONTH", "YEAR", "DAY", "DESC");
-
     private boolean isValidTable(String table) {
-        if (table == null)
-            return false;
-
-        table = table.toUpperCase().trim();
-
-        return table.matches("[A-Z][A-Z0-9_]*") && table.length() > 2 && !table.startsWith("P_")
-                && !table.startsWith("V_") && !SQL_KEYWORDS.contains(table);
+        return table != null && table.matches("[A-Z][A-Z0-9_]*") && table.length() > 2
+                && !Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
+                        "DELETE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR",
+                        "COUNT", "SUM", "AVG", "EXTRACT", "SYSDATE").contains(table);
     }
 }
