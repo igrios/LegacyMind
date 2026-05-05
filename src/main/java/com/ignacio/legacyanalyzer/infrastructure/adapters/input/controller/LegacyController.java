@@ -5,12 +5,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.ignacio.legacyanalyzer.application.dto.AnalyzeGraphResponse;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
@@ -25,7 +27,7 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLeg
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
 
-
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/legacy")
 public class LegacyController {
@@ -40,8 +42,7 @@ public class LegacyController {
         private final GetImpactGraphUseCase getImpactGraphUseCase;
 
         public LegacyController(LegacyObjectRepository repository,
-                        RegexLegacyParserAdapter parserAdapter, 
-                        GetImpactUseCase getImpactUseCase,
+                        RegexLegacyParserAdapter parserAdapter, GetImpactUseCase getImpactUseCase,
                         TableDependencyRepositoryPort dependencyPort,
                         DependencyAnalyzerService analyzerService,
                         GetImpactByLevelsUseCase getImpactByLevelsUseCase,
@@ -62,35 +63,38 @@ public class LegacyController {
 
 
         @PostMapping("/analyze")
-        public AnalyzeLegacyResponse analyze(@RequestBody AnalyzeLegacyRequest request) {
+        public AnalyzeGraphResponse analyze(@RequestBody AnalyzeLegacyRequest request) {
 
-                // 1. Parseo
                 LegacyObject object = parserAdapter.parse(request.getSourceCode());
 
-                // 2. Relaciones semánticas
                 List<String> relations =
                                 parserAdapter.extractSemanticRelations(request.getSourceCode());
 
-                // 3. Dependencias (SIN fallback)
                 List<TableDependency> dependencies =
                                 analyzerService.buildFromRelations(relations, object.getName());
 
-                dependencyPort.saveAllDependencies(dependencies);
-                LegacyObjectEntity entity = new LegacyObjectEntity(object.getId(), object.getName(),
+                if (dependencies != null) {
+                        dependencyPort.saveAllDependencies(dependencies);
+                }
+
+                repository.save(new LegacyObjectEntity(object.getId(), object.getName(),
                                 object.getType(), object.getSourceCode(),
                                 String.join(",", object.getProcedures()),
                                 String.join(",", object.getReferencedTables()),
                                 String.join(",", object.getCodeSmells()), object.getRiskScore(),
                                 object.getRiskLevel(), object.getFunctionalSummary(),
-                                LocalDateTime.now());
+                                LocalDateTime.now()));
 
-                repository.save(entity);
+                // 🔥 fallback seguro
+                List<String> nodes = object.getReferencedTables();
 
-                // 5. Response
-                return new AnalyzeLegacyResponse(object.getName(), object.getType(),
-                                object.getProcedures(), object.getReferencedTables(),
-                                object.getCodeSmells(), object.getRiskScore(),
-                                object.getRiskLevel(), object.getFunctionalSummary());
+                List<Map<String, String>> edges = nodes.stream()
+                                .map(t -> Map.of("from", object.getName(), "to", t)).toList();
+
+                return new AnalyzeGraphResponse(object.getName(), object.getType(), nodes, edges,
+                                object.getReferencedTables(), object.getCodeSmells(),
+                                object.getRiskScore(), object.getRiskLevel(),
+                                object.getFunctionalSummary());
         }
 
         @GetMapping("/history")
@@ -144,10 +148,10 @@ public class LegacyController {
 
 
 
-@GetMapping("/impact/graph/{table}")
-public Map<String, Object> getGraph(@PathVariable String table) {
-    return getImpactGraphUseCase.execute(table);
-}
+        @GetMapping("/impact/graph/{table}")
+        public Map<String, Object> getGraph(@PathVariable String table) {
+                return getImpactGraphUseCase.execute(table);
+        }
 
 
 

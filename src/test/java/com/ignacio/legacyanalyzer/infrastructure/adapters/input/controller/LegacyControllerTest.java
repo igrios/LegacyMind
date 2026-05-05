@@ -7,18 +7,17 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
 import java.util.List;
-
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
+import com.ignacio.legacyanalyzer.application.dto.AnalyzeGraphResponse;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
-import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
+import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactUseCase;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
@@ -52,49 +51,64 @@ class LegacyControllerTest {
     @Mock
     private ImpactAnalysisService impactService;
 
+    @Mock
+    private GetImpactGraphUseCase getImpactGraphUseCase;
+
     @InjectMocks
     private LegacyController controller;
 
     @Test
-    void analyzeShouldSaveAndReturnResponse() {
+    void analyzeShouldSaveAndReturnGraphResponse() {
 
+        // 🔥 Request
         AnalyzeLegacyRequest request = new AnalyzeLegacyRequest();
         request.setSourceCode("""
-            CREATE OR REPLACE PROCEDURE test_proc IS
-            BEGIN
-                SELECT * FROM users;
-            END;
-        """);
+                    CREATE OR REPLACE PROCEDURE test_proc IS
+                    BEGIN
+                        SELECT * FROM users;
+                    END;
+                """);
 
-      LegacyObject mockObject = org.mockito.Mockito.mock(LegacyObject.class);
+        // 🔥 Mock del objeto parseado
+        LegacyObject mockObject = org.mockito.Mockito.mock(LegacyObject.class);
 
-when(mockObject.getName()).thenReturn("TEST_PROC");
-when(mockObject.getType()).thenReturn("PROCEDURE");
-when(mockObject.getSourceCode()).thenReturn(request.getSourceCode());
-when(mockObject.getProcedures()).thenReturn(java.util.List.of());
-when(mockObject.getReferencedTables()).thenReturn(java.util.List.of("USERS"));
-when(mockObject.getCodeSmells()).thenReturn(java.util.List.of());
-when(mockObject.getRiskScore()).thenReturn(0);
-when(mockObject.getRiskLevel()).thenReturn("LOW");
-when(mockObject.getFunctionalSummary()).thenReturn("summary");
-        
+        when(mockObject.getName()).thenReturn("TEST_PROC");
+        when(mockObject.getType()).thenReturn("PROCEDURE");
+        when(mockObject.getSourceCode()).thenReturn(request.getSourceCode());
+        when(mockObject.getProcedures()).thenReturn(List.of());
+        when(mockObject.getReferencedTables()).thenReturn(List.of("USERS"));
+        when(mockObject.getCodeSmells()).thenReturn(List.of());
+        when(mockObject.getRiskScore()).thenReturn(0);
+        when(mockObject.getRiskLevel()).thenReturn("LOW");
+        when(mockObject.getFunctionalSummary()).thenReturn("summary");
 
+        // 🔥 Parser
         when(parserAdapter.parse(anyString())).thenReturn(mockObject);
         when(parserAdapter.extractSemanticRelations(anyString()))
                 .thenReturn(List.of("USERS->TEST"));
 
-        when(analyzerService.buildFromRelations(anyList(), anyString()))
-                .thenReturn(List.of());
+        // 🔥 Analyzer
+        when(analyzerService.buildFromRelations(anyList(), anyString())).thenReturn(List.of());
+
+        // 🔥 Graph mock
+        when(getImpactGraphUseCase.execute(anyString()))
+                .thenReturn(Map.of("nodes", List.of("TEST_PROC", "USERS"), "edges",
+                        List.of(Map.of("from", "TEST_PROC", "to", "USERS"))));
 
         // 🔥 Ejecutar
-        AnalyzeLegacyResponse response = controller.analyze(request);
+        AnalyzeGraphResponse response = controller.analyze(request);
 
         // 🔥 Verificar persistencia
         verify(repository).save(any(LegacyObjectEntity.class));
 
         // 🔥 Validaciones
         assertNotNull(response);
-        assertEquals("TEST_PROC", response.name());
-        assertEquals("PROCEDURE", response.type());
+        assertEquals("TEST_PROC", response.getName());
+        assertEquals("PROCEDURE", response.getType());
+
+        // 🔥 Grafo
+        assertNotNull(response.getNodes());
+        assertNotNull(response.getEdges());
+        assertEquals(2, response.getNodes().size());
     }
 }
