@@ -2,69 +2,29 @@ package com.ignacio.legacyanalyzer.application.dto;
 
 import java.util.List;
 import java.util.Map;
+import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 
-public class AnalyzeGraphResponse {
+public record AnalyzeGraphResponse(
 
-  private String name;
-  private String type;
+    String name,
 
-  private List<String> nodes;
-  private List<Map<String, String>> edges;
+    String type,
 
-  private List<String> referencedTables;
-  private List<String> codeSmells;
+    List<String> nodes,
 
-  private Integer riskScore;
-  private String riskLevel;
-  private String functionalSummary;
+    List<Map<String, String>> edges,
 
-  public AnalyzeGraphResponse(String name, String type, List<String> nodes,
-      List<Map<String, String>> edges, List<String> referencedTables, List<String> codeSmells,
-      Integer riskScore, String riskLevel, String functionalSummary) {
-    this.name = name;
-    this.type = type;
-    this.nodes = nodes;
-    this.edges = edges;
-    this.referencedTables = referencedTables;
-    this.codeSmells = codeSmells;
-    this.riskScore = riskScore;
-    this.riskLevel = riskLevel;
-    this.functionalSummary = functionalSummary;
-  }
+    List<String> referencedTables,
 
-  public String getName() {
-    return name;
-  }
+    List<String> codeSmells,
 
-  public String getType() {
-    return type;
-  }
+    int riskScore,
 
-  public List<String> getNodes() {
-    return nodes;
-  }
+    String riskLevel,
 
-  public List<Map<String, String>> getEdges() {
-    return edges;
-  }
+    String functionalSummary,
 
-  public List<String> getReferencedTables() {
-    return referencedTables;
-  }
+    List<SubprogramNode> subprograms
 
-  public List<String> getCodeSmells() {
-    return codeSmells;
-  }
-
-  public Integer getRiskScore() {
-    return riskScore;
-  }
-
-  public String getRiskLevel() {
-    return riskLevel;
-  }
-
-  public String getFunctionalSummary() {
-    return functionalSummary;
-  }
+) {
 }

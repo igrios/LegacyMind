@@ -25,34 +25,43 @@ public class LegacyObjectMapper {
         );
     }
 
-    public AnalyzeLegacyResponse toResponse(LegacyObject object) {
-        return new AnalyzeLegacyResponse(
-                object.getName(),
-                object.getType(),
-                object.getProcedures(),
-                object.getReferencedTables(),
-                object.getCodeSmells(),
-                object.getRiskScore(),
-                object.getRiskLevel(),
-                object.getFunctionalSummary()
-        );
-    }
+ public AnalyzeLegacyResponse toResponse(LegacyObject object) {
 
-    public AnalyzeLegacyResponse toResponse(LegacyObjectEntity entity) {
-        return new AnalyzeLegacyResponse(
-                entity.getName(),
-                entity.getType(),
-                split(entity.getProcedures()),
-                split(entity.getReferencedTables()),
-                split(entity.getCodeSmells()),
-                entity.getRiskScore() != null ? entity.getRiskScore() : 0,
-                entity.getRiskLevel() != null ? entity.getRiskLevel() : "LOW",
-                entity.getFunctionalSummary() != null
-                        ? entity.getFunctionalSummary()
-                        : "No summary available"
-        );
-    }
+    return new AnalyzeLegacyResponse(
+            object.getName(),
+            object.getType(),
+            object.getProcedures(),
+            object.getReferencedTables(),
+            object.getCodeSmells(),
+            object.getRiskScore(),
+            object.getRiskLevel(),
+            object.getFunctionalSummary(),
+            object.getSubprograms()
+    );
+}
 
+    public AnalyzeLegacyResponse toResponse(
+        LegacyObjectEntity entity
+) {
+
+    return new AnalyzeLegacyResponse(
+            entity.getName(),
+            entity.getType(),
+            split(entity.getProcedures()),
+            split(entity.getReferencedTables()),
+            split(entity.getCodeSmells()),
+            entity.getRiskScore() != null
+                    ? entity.getRiskScore()
+                    : 0,
+            entity.getRiskLevel() != null
+                    ? entity.getRiskLevel()
+                    : "LOW",
+            entity.getFunctionalSummary() != null
+                    ? entity.getFunctionalSummary()
+                    : "No summary available",
+            List.of()
+    );
+}
     private List<String> split(String value) {
         if (value == null || value.isBlank()) return List.of();
         return Arrays.stream(value.split(","))

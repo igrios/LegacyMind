@@ -1,6 +1,7 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.input.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -8,11 +9,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeGraphResponse;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
@@ -20,6 +21,7 @@ import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactUseCase;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
+import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
 import com.ignacio.legacyanalyzer.domain.services.DependencyAnalyzerService;
 import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
@@ -60,55 +62,71 @@ class LegacyControllerTest {
     @Test
     void analyzeShouldSaveAndReturnGraphResponse() {
 
-        // 🔥 Request
+        // Arrange
+        String sourceCode = """
+                CREATE OR REPLACE PROCEDURE test_proc IS
+                BEGIN
+                    SELECT * FROM users;
+                END;
+                """;
+
         AnalyzeLegacyRequest request = new AnalyzeLegacyRequest();
-        request.setSourceCode("""
-                    CREATE OR REPLACE PROCEDURE test_proc IS
-                    BEGIN
-                        SELECT * FROM users;
-                    END;
-                """);
+        request.setSourceCode(sourceCode);
 
-        // 🔥 Mock del objeto parseado
-        LegacyObject mockObject = org.mockito.Mockito.mock(LegacyObject.class);
+        LegacyObject legacyObject = Mockito.mock(LegacyObject.class);
 
-        when(mockObject.getName()).thenReturn("TEST_PROC");
-        when(mockObject.getType()).thenReturn("PROCEDURE");
-        when(mockObject.getSourceCode()).thenReturn(request.getSourceCode());
-        when(mockObject.getProcedures()).thenReturn(List.of());
-        when(mockObject.getReferencedTables()).thenReturn(List.of("USERS"));
-        when(mockObject.getCodeSmells()).thenReturn(List.of());
-        when(mockObject.getRiskScore()).thenReturn(0);
-        when(mockObject.getRiskLevel()).thenReturn("LOW");
-        when(mockObject.getFunctionalSummary()).thenReturn("summary");
+        when(legacyObject.getId()).thenReturn("1");
+        when(legacyObject.getName()).thenReturn("TEST_PROC");
+        when(legacyObject.getType()).thenReturn("PROCEDURE");
+        when(legacyObject.getSourceCode()).thenReturn(sourceCode);
 
-        // 🔥 Parser
-        when(parserAdapter.parse(anyString())).thenReturn(mockObject);
+        when(legacyObject.getReferencedTables())
+                .thenReturn(List.of("USERS"));
+
+        when(legacyObject.getProcedures())
+                .thenReturn(List.of());
+
+        when(legacyObject.getCodeSmells())
+                .thenReturn(List.of());
+
+        when(legacyObject.getRiskScore())
+                .thenReturn(0);
+
+        when(legacyObject.getRiskLevel())
+                .thenReturn("LOW");
+
+        when(legacyObject.getFunctionalSummary())
+                .thenReturn("Simple procedure");
+
+        when(parserAdapter.parse(anyString()))
+                .thenReturn(legacyObject);
+
         when(parserAdapter.extractSemanticRelations(anyString()))
-                .thenReturn(List.of("USERS->TEST"));
+                .thenReturn(List.of("TEST_PROC->USERS"));
 
-        // 🔥 Analyzer
-        when(analyzerService.buildFromRelations(anyList(), anyString())).thenReturn(List.of());
+        when(analyzerService.buildFromRelations(anyList(), anyString()))
+                .thenReturn(List.<TableDependency>of());
 
-        // 🔥 Graph mock
-        when(getImpactGraphUseCase.execute(anyString()))
-                .thenReturn(Map.of("nodes", List.of("TEST_PROC", "USERS"), "edges",
-                        List.of(Map.of("from", "TEST_PROC", "to", "USERS"))));
-
-        // 🔥 Ejecutar
+        // Act
         AnalyzeGraphResponse response = controller.analyze(request);
 
-        // 🔥 Verificar persistencia
-        verify(repository).save(any(LegacyObjectEntity.class));
-
-        // 🔥 Validaciones
+        // Assert
         assertNotNull(response);
-        assertEquals("TEST_PROC", response.getName());
-        assertEquals("PROCEDURE", response.getType());
 
-        // 🔥 Grafo
-        assertNotNull(response.getNodes());
-        assertNotNull(response.getEdges());
-        assertEquals(2, response.getNodes().size());
+        assertEquals("TEST_PROC", response.name());
+        assertEquals("PROCEDURE", response.type());
+
+        assertNotNull(response.nodes());
+        assertNotNull(response.edges());
+
+        assertEquals(1, response.nodes().size());
+        assertEquals("USERS", response.nodes().get(0));
+
+        assertEquals(1, response.edges().size());
+
+        assertFalse(response.edges().isEmpty());
+
+        verify(repository).save(any(LegacyObjectEntity.class));
+        verify(dependencyPort).saveAllDependencies(anyList());
     }
 }

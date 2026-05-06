@@ -62,46 +62,94 @@ public class LegacyController {
 
 
 
-        @PostMapping("/analyze")
-        public AnalyzeGraphResponse analyze(@RequestBody AnalyzeLegacyRequest request) {
+     @PostMapping("/analyze")
+public AnalyzeGraphResponse analyze(
+        @RequestBody AnalyzeLegacyRequest request
+) {
 
-                LegacyObject object = parserAdapter.parse(request.getSourceCode());
+    LegacyObject object =
+            parserAdapter.parse(
+                    request.getSourceCode()
+            );
 
-                List<String> relations =
-                                parserAdapter.extractSemanticRelations(request.getSourceCode());
+    List<String> relations =
+            parserAdapter.extractSemanticRelations(
+                    request.getSourceCode()
+            );
 
-                List<TableDependency> dependencies =
-                                analyzerService.buildFromRelations(relations, object.getName());
+    List<TableDependency> dependencies =
+            analyzerService.buildFromRelations(
+                    relations,
+                    object.getName()
+            );
 
-                if (dependencies != null) {
-                        dependencyPort.saveAllDependencies(dependencies);
-                }
+    if (dependencies != null) {
+        dependencyPort.saveAllDependencies(
+                dependencies
+        );
+    }
 
-                repository.save(new LegacyObjectEntity(object.getId(), object.getName(),
-                                object.getType(), object.getSourceCode(),
-                                String.join(",", object.getProcedures()),
-                                String.join(",", object.getReferencedTables()),
-                                String.join(",", object.getCodeSmells()), object.getRiskScore(),
-                                object.getRiskLevel(), object.getFunctionalSummary(),
-                                LocalDateTime.now()));
+    repository.save(
+            new LegacyObjectEntity(
+                    object.getId(),
+                    object.getName(),
+                    object.getType(),
+                    object.getSourceCode(),
+                    String.join(",", object.getProcedures()),
+                    String.join(",", object.getReferencedTables()),
+                    String.join(",", object.getCodeSmells()),
+                    object.getRiskScore(),
+                    object.getRiskLevel(),
+                    object.getFunctionalSummary(),
+                    LocalDateTime.now()
+            )
+    );
 
-                // 🔥 fallback seguro
-                List<String> nodes = object.getReferencedTables();
+    List<String> nodes =
+            object.getReferencedTables();
 
-                List<Map<String, String>> edges = nodes.stream()
-                                .map(t -> Map.of("from", object.getName(), "to", t)).toList();
+    List<Map<String, String>> edges =
+            nodes.stream()
+                    .map(t -> Map.of(
+                            "from",
+                            object.getName(),
+                            "to",
+                            t
+                    ))
+                    .toList();
 
-                return new AnalyzeGraphResponse(object.getName(), object.getType(), nodes, edges,
-                                object.getReferencedTables(), object.getCodeSmells(),
-                                object.getRiskScore(), object.getRiskLevel(),
-                                object.getFunctionalSummary());
-        }
+    return new AnalyzeGraphResponse(
+
+            object.getName(),
+
+            object.getType(),
+
+            nodes,
+
+            edges,
+
+            object.getReferencedTables(),
+
+            object.getCodeSmells(),
+
+            object.getRiskScore(),
+
+            object.getRiskLevel(),
+
+            object.getFunctionalSummary(),
+
+            object.getSubprograms()
+    );
+}
 
         @GetMapping("/history")
         public List<AnalyzeLegacyResponse> history() {
 
                 return repository.findAll().stream().map(entity -> new AnalyzeLegacyResponse(
-                                entity.getName(), entity.getType(),
+
+                                entity.getName(),
+
+                                entity.getType(),
 
                                 entity.getProcedures() != null
                                                 ? List.of(entity.getProcedures().split(","))
@@ -116,14 +164,18 @@ public class LegacyController {
                                                 : List.of(),
 
                                 entity.getRiskScore() != null ? entity.getRiskScore() : 0,
+
                                 entity.getRiskLevel() != null ? entity.getRiskLevel() : "LOW",
 
                                 entity.getFunctionalSummary() != null
                                                 ? entity.getFunctionalSummary()
-                                                : "No summary available"
+                                                : "No summary available",
+
+                                List.of()
 
                 )).toList();
         }
+
 
         // Endpoint de impacto en cascada
         @GetMapping("/impact/{table}")

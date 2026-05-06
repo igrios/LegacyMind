@@ -32,3 +32,14 @@ build/
 ### VS Code ###
 .vscode/
 prueba.json
+
+# Java
+target/
+
+# Node
+frontend/node_modules/
+frontend/build/
+
+# IDE
+.vscode/
+.idea/
