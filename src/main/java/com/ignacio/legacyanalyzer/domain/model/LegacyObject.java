@@ -16,33 +16,26 @@ public class LegacyObject {
     private String riskLevel;
     private String functionalSummary;
     private List<SubprogramNode> subprograms;
+    private List<KnowledgeRelation> knowledgeRelations;
 
-   public LegacyObject(
-        String id,
-        String name,
-        String type,
-        List<String> procedures,
-        List<String> referencedTables,
-        List<SubprogramNode> subprograms,
-        String sourceCode,
-        List<String> codeSmells,
-        int riskScore,
-        String riskLevel,
-        String functionalSummary
-) {
+    public LegacyObject(String id, String name, String type, List<String> procedures,
+            List<String> referencedTables, List<SubprogramNode> subprograms,
+            List<KnowledgeRelation> knowledgeRelations, String sourceCode, List<String> codeSmells,
+            int riskScore, String riskLevel, String functionalSummary) {
 
-    this.id = id;
-    this.name = name;
-    this.type = type;
-    this.procedures = procedures;
-    this.referencedTables = referencedTables;
-    this.subprograms = subprograms;
-    this.sourceCode = sourceCode;
-    this.codeSmells = codeSmells;
-    this.riskScore = riskScore;
-    this.riskLevel = riskLevel;
-    this.functionalSummary = functionalSummary;
-}
+        this.id = id;
+        this.name = name;
+        this.type = type;
+        this.procedures = procedures;
+        this.referencedTables = referencedTables;
+        this.subprograms = subprograms;
+        this.knowledgeRelations = knowledgeRelations;
+        this.sourceCode = sourceCode;
+        this.codeSmells = codeSmells;
+        this.riskScore = riskScore;
+        this.riskLevel = riskLevel;
+        this.functionalSummary = functionalSummary;
+    }
 
     public String getFunctionalSummary() {
         return functionalSummary;
@@ -71,27 +64,30 @@ public class LegacyObject {
     public String getSourceCode() {
         return sourceCode;
     }
+
     public List<String> getCodeSmells() {
         return codeSmells;
     }
+
     public int getRiskScore() {
         return riskScore;
     }
+
     public String getRiskLevel() {
         return riskLevel;
     }
 
-public List<SubprogramNode> getSubprograms() {
-    return subprograms;
-}
+    public List<SubprogramNode> getSubprograms() {
+        return subprograms;
+    }
 
-public void setSubprograms(
-        List<SubprogramNode> subprograms
-) {
-    this.subprograms = subprograms;
-}
+    public void setSubprograms(List<SubprogramNode> subprograms) {
+        this.subprograms = subprograms;
+    }
 
-
+    public List<KnowledgeRelation> getKnowledgeRelations() {
+        return knowledgeRelations;
+    }
 
 
 }

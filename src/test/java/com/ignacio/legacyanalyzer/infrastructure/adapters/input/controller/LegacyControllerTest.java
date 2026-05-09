@@ -1,7 +1,6 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.input.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -15,8 +14,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.ignacio.legacyanalyzer.application.dto.AnalyzeGraphResponse;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
+import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactUseCase;
@@ -33,19 +32,19 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.Leg
 class LegacyControllerTest {
 
     @Mock
+    private RegexLegacyParserAdapter parserAdapter;
+
+    @Mock
     private LegacyObjectRepository repository;
 
     @Mock
-    private RegexLegacyParserAdapter parserAdapter;
+    private GetImpactUseCase getImpactUseCase;
 
     @Mock
     private TableDependencyRepositoryPort dependencyPort;
 
     @Mock
     private DependencyAnalyzerService analyzerService;
-
-    @Mock
-    private GetImpactUseCase getImpactUseCase;
 
     @Mock
     private GetImpactByLevelsUseCase getImpactByLevelsUseCase;
@@ -59,10 +58,10 @@ class LegacyControllerTest {
     @InjectMocks
     private LegacyController controller;
 
-    @Test
-    void analyzeShouldSaveAndReturnGraphResponse() {
+    @SuppressWarnings("null")
+@Test
+    void analyzeShouldSaveAndReturnResponse() {
 
-        // Arrange
         String sourceCode = """
                 CREATE OR REPLACE PROCEDURE test_proc IS
                 BEGIN
@@ -71,13 +70,17 @@ class LegacyControllerTest {
                 """;
 
         AnalyzeLegacyRequest request = new AnalyzeLegacyRequest();
+
         request.setSourceCode(sourceCode);
 
         LegacyObject legacyObject = Mockito.mock(LegacyObject.class);
 
         when(legacyObject.getId()).thenReturn("1");
+
         when(legacyObject.getName()).thenReturn("TEST_PROC");
+
         when(legacyObject.getType()).thenReturn("PROCEDURE");
+
         when(legacyObject.getSourceCode()).thenReturn(sourceCode);
 
         when(legacyObject.getReferencedTables())
@@ -98,6 +101,12 @@ class LegacyControllerTest {
         when(legacyObject.getFunctionalSummary())
                 .thenReturn("Simple procedure");
 
+        when(legacyObject.getSubprograms())
+                .thenReturn(List.of());
+
+        when(legacyObject.getKnowledgeRelations())
+                .thenReturn(List.of());
+
         when(parserAdapter.parse(anyString()))
                 .thenReturn(legacyObject);
 
@@ -107,26 +116,20 @@ class LegacyControllerTest {
         when(analyzerService.buildFromRelations(anyList(), anyString()))
                 .thenReturn(List.<TableDependency>of());
 
-        // Act
-        AnalyzeGraphResponse response = controller.analyze(request);
+        AnalyzeLegacyResponse response = controller.analyze(request);
 
-        // Assert
         assertNotNull(response);
 
         assertEquals("TEST_PROC", response.name());
+
         assertEquals("PROCEDURE", response.type());
 
-        assertNotNull(response.nodes());
-        assertNotNull(response.edges());
+        assertEquals(1, response.referencedTables().size());
 
-        assertEquals(1, response.nodes().size());
-        assertEquals("USERS", response.nodes().get(0));
-
-        assertEquals(1, response.edges().size());
-
-        assertFalse(response.edges().isEmpty());
+        assertEquals("USERS", response.referencedTables().get(0));
 
         verify(repository).save(any(LegacyObjectEntity.class));
+
         verify(dependencyPort).saveAllDependencies(anyList());
     }
 }

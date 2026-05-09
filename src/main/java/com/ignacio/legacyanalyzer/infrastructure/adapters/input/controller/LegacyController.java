@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.ignacio.legacyanalyzer.application.dto.AnalyzeGraphResponse;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
@@ -24,8 +23,13 @@ import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
 import com.ignacio.legacyanalyzer.domain.services.DependencyAnalyzerService;
 import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
+import java.util.HashSet;
+import java.util.HashMap;
+
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -40,6 +44,7 @@ public class LegacyController {
         private final GetImpactByLevelsUseCase getImpactByLevelsUseCase;
         private final ImpactAnalysisService impactService;
         private final GetImpactGraphUseCase getImpactGraphUseCase;
+        private final KnowledgeRelationRepository knowledgeRelationRepository;
 
         public LegacyController(LegacyObjectRepository repository,
                         RegexLegacyParserAdapter parserAdapter, GetImpactUseCase getImpactUseCase,
@@ -47,7 +52,8 @@ public class LegacyController {
                         DependencyAnalyzerService analyzerService,
                         GetImpactByLevelsUseCase getImpactByLevelsUseCase,
                         ImpactAnalysisService impactService,
-                        GetImpactGraphUseCase getImpactGraphUseCase) {
+                        GetImpactGraphUseCase getImpactGraphUseCase,
+                        KnowledgeRelationRepository knowledgeRelationRepository) {
 
                 this.repository = repository;
                 this.parserAdapter = parserAdapter;
@@ -57,90 +63,80 @@ public class LegacyController {
                 this.getImpactByLevelsUseCase = getImpactByLevelsUseCase;
                 this.impactService = impactService;
                 this.getImpactGraphUseCase = getImpactGraphUseCase;
-
+                this.knowledgeRelationRepository = knowledgeRelationRepository;
         }
 
+        @PostMapping("/analyze")
+        public AnalyzeLegacyResponse analyze(@RequestBody AnalyzeLegacyRequest request) {
+
+                LegacyObject object = parserAdapter.parse(request.getSourceCode());
+
+                object.getKnowledgeRelations().forEach(relation -> {
+
+                        boolean exists = knowledgeRelationRepository
+                                        .existsBySourceAndRelationAndTarget(
+
+                                                        relation.source(),
+
+                                                        relation.relation(),
+
+                                                        relation.target());
+
+                        if (!exists) {
+
+                                knowledgeRelationRepository.save(
+
+                                                new KnowledgeRelationEntity(
+
+                                                                relation.source(),
+
+                                                                relation.relation(),
+
+                                                                relation.target()));
+                        }
+                });
 
 
-     @PostMapping("/analyze")
-public AnalyzeGraphResponse analyze(
-        @RequestBody AnalyzeLegacyRequest request
-) {
+                List<String> relations =
+                                parserAdapter.extractSemanticRelations(request.getSourceCode());
 
-    LegacyObject object =
-            parserAdapter.parse(
-                    request.getSourceCode()
-            );
+                List<TableDependency> dependencies =
+                                analyzerService.buildFromRelations(relations, object.getName());
 
-    List<String> relations =
-            parserAdapter.extractSemanticRelations(
-                    request.getSourceCode()
-            );
+                if (dependencies != null) {
+                        dependencyPort.saveAllDependencies(dependencies);
+                }
 
-    List<TableDependency> dependencies =
-            analyzerService.buildFromRelations(
-                    relations,
-                    object.getName()
-            );
+                repository.save(new LegacyObjectEntity(object.getId(), object.getName(),
+                                object.getType(), object.getSourceCode(),
+                                String.join(",", object.getProcedures()),
+                                String.join(",", object.getReferencedTables()),
+                                String.join(",", object.getCodeSmells()), object.getRiskScore(),
+                                object.getRiskLevel(), object.getFunctionalSummary(),
+                                LocalDateTime.now()));
 
-    if (dependencies != null) {
-        dependencyPort.saveAllDependencies(
-                dependencies
-        );
-    }
+                return new AnalyzeLegacyResponse(
 
-    repository.save(
-            new LegacyObjectEntity(
-                    object.getId(),
-                    object.getName(),
-                    object.getType(),
-                    object.getSourceCode(),
-                    String.join(",", object.getProcedures()),
-                    String.join(",", object.getReferencedTables()),
-                    String.join(",", object.getCodeSmells()),
-                    object.getRiskScore(),
-                    object.getRiskLevel(),
-                    object.getFunctionalSummary(),
-                    LocalDateTime.now()
-            )
-    );
+                                object.getName(),
 
-    List<String> nodes =
-            object.getReferencedTables();
+                                object.getType(),
 
-    List<Map<String, String>> edges =
-            nodes.stream()
-                    .map(t -> Map.of(
-                            "from",
-                            object.getName(),
-                            "to",
-                            t
-                    ))
-                    .toList();
+                                object.getProcedures(),
 
-    return new AnalyzeGraphResponse(
+                                object.getReferencedTables(),
 
-            object.getName(),
+                                object.getCodeSmells(),
 
-            object.getType(),
+                                object.getRiskScore(),
 
-            nodes,
+                                object.getRiskLevel(),
 
-            edges,
+                                object.getFunctionalSummary(),
 
-            object.getReferencedTables(),
+                                object.getSubprograms(),
 
-            object.getCodeSmells(),
-
-            object.getRiskScore(),
-
-            object.getRiskLevel(),
-
-            object.getFunctionalSummary(),
-
-            object.getSubprograms()
-    );
-}
+                                object.getKnowledgeRelations());
+        }
 
         @GetMapping("/history")
         public List<AnalyzeLegacyResponse> history() {
@@ -171,19 +167,18 @@ public AnalyzeGraphResponse analyze(
                                                 ? entity.getFunctionalSummary()
                                                 : "No summary available",
 
+                                List.of(),
+
                                 List.of()
 
                 )).toList();
         }
 
-
-        // Endpoint de impacto en cascada
         @GetMapping("/impact/{table}")
         public ResponseEntity<Set<String>> getImpact(@PathVariable String table) {
                 Set<String> result = getImpactUseCase.execute(table);
                 return ResponseEntity.ok(result);
         }
-
 
         @GetMapping("/impact/levels/{table}")
         public ResponseEntity<Map<Integer, Set<String>>> getImpactByLevels(
@@ -191,19 +186,74 @@ public AnalyzeGraphResponse analyze(
                 return ResponseEntity.ok(getImpactByLevelsUseCase.execute(table));
         }
 
-
-
         @GetMapping("/impact/paths/{table}")
         public ResponseEntity<List<List<String>>> getPaths(@PathVariable String table) {
                 return ResponseEntity.ok(impactService.getAllPaths(table));
         }
 
-
-
         @GetMapping("/impact/graph/{table}")
         public Map<String, Object> getGraph(@PathVariable String table) {
                 return getImpactGraphUseCase.execute(table);
         }
+
+@GetMapping("/knowledge-graph")
+public Map<String, Object> getKnowledgeGraph() {
+
+    List<KnowledgeRelationEntity> relations =
+            knowledgeRelationRepository.findAll();
+
+    Set<String> nodes =
+            new HashSet<>();
+
+    List<Map<String, String>> edges =
+            relations.stream()
+                    .map(relation -> {
+
+                        nodes.add(
+                                relation.getSource()
+                        );
+
+                        nodes.add(
+                                relation.getTarget()
+                        );
+
+                        Map<String, String> edge =
+                                new HashMap<>();
+
+                        edge.put(
+                                "source",
+                                relation.getSource()
+                        );
+
+                        edge.put(
+                                "target",
+                                relation.getTarget()
+                        );
+
+                        edge.put(
+                                "relation",
+                                relation.getRelation()
+                        );
+
+                        return edge;
+                    })
+                    .toList();
+
+    Map<String, Object> result =
+            new HashMap<>();
+
+    result.put(
+            "nodes",
+            nodes
+    );
+
+    result.put(
+            "edges",
+            edges
+    );
+
+    return result;
+}
 
 
 

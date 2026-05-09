@@ -1,83 +1,78 @@
 import dagre from "dagre";
 
-export default function mapToFlow(graph) {
-  if (!graph || !graph.nodes) {
-    return { nodes: [], edges: [] };
-  }
+const dagreGraph = new dagre.graphlib.Graph();
 
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
+dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-  g.setGraph({
-    rankdir: "TB", // 👈 vertical (root arriba)
-    nodesep: 60,
-    ranksep: 120,
+const NODE_WIDTH = 220;
+const NODE_HEIGHT = 80;
+
+export default function getLayoutedElements(
+  nodes,
+  edges
+) {
+
+  // 🔥 Dirección del layout
+  // TB = top-bottom
+  // LR = left-right
+
+  dagreGraph.setGraph({
+
+    rankdir: "TB",
+
+    nodesep: 80,
+
+    ranksep: 120
   });
 
-  const nodeWidth = 160;
-  const nodeHeight = 50;
+  // 🔵 Registrar nodos
+  nodes.forEach((node) => {
 
-  const root = graph.name;
+    dagreGraph.setNode(node.id, {
 
-  // 🧠 aseguramos que root esté primero
-  const allNodes = [root, ...graph.nodes];
+      width: NODE_WIDTH,
 
-  // 👉 NODOS
-  allNodes.forEach((node) => {
-    g.setNode(node, {
-      width: nodeWidth,
-      height: nodeHeight,
-      rank: node === root ? 0 : undefined // 🔥 root arriba SIEMPRE
+      height: NODE_HEIGHT
     });
   });
 
-  // 👉 EDGES
-  (graph.edges || []).forEach((edge) => {
-    g.setEdge(edge.from, edge.to);
+  // 🔗 Registrar edges
+  edges.forEach((edge) => {
+
+    dagreGraph.setEdge(
+      edge.source,
+      edge.target
+    );
   });
 
-  dagre.layout(g);
+  // ⚡ Ejecutar layout
+  dagre.layout(dagreGraph);
 
-  // 🔥 centrar grafo
-  const positions = allNodes.map((n) => g.node(n));
+  // 🔥 Aplicar posiciones calculadas
+  const layoutedNodes = nodes.map((node) => {
 
-  const minX = Math.min(...positions.map((p) => p.x));
-  const minY = Math.min(...positions.map((p) => p.y));
-
-  const offsetX = -minX + 100;
-  const offsetY = -minY + 100;
-
-  const nodes = allNodes.map((node) => {
-    const pos = g.node(node);
+    const position =
+      dagreGraph.node(node.id);
 
     return {
-      id: node,
-      data: { label: node },
+
+      ...node,
+
       position: {
-        x: pos.x + offsetX,
-        y: pos.y + offsetY,
-      },
-      style: {
-        background: node === root ? "#111" : "#e5e7eb",
-        color: node === root ? "#fff" : "#000",
-        fontWeight: node === root ? "bold" : "normal",
-        border: node === root ? "3px solid #000" : "1px solid #333",
-        borderRadius: "6px",
-        padding: "6px",
-      },
+
+        x:
+          position.x - NODE_WIDTH / 2,
+
+        y:
+          position.y - NODE_HEIGHT / 2
+      }
     };
   });
 
-  const edges = (graph.edges || []).map((edge, i) => ({
-    id: `${edge.from}-${edge.to}-${i}`,
-    source: edge.from,
-    target: edge.to,
-    style: {
-      stroke: edge.from === root ? "#000" : "#888",
-      strokeWidth: edge.from === root ? 2.5 : 1.5,
-    },
-    animated: edge.from === root
-  }));
+  return {
 
-  return { nodes, edges };
+    nodes: layoutedNodes,
+
+    edges
+  };
 }

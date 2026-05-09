@@ -1,8 +1,19 @@
 import axios from "axios";
 
-const API = axios.create({
-  baseURL: "http://localhost:8080/api/legacy",
-});
+const API_URL = "http://localhost:8080/api/legacy";
 
-export const getGraph = (table) =>
-  API.get(`/impact/graph/${table}`);
+// 🔥 Knowledge Graph completo
+export const getKnowledgeGraph = () => {
+
+  return axios.get(
+    `${API_URL}/knowledge-graph`
+  );
+};
+
+// 🔵 Impact Graph viejo
+export const getGraph = (table) => {
+
+  return axios.get(
+    `${API_URL}/impact/${table}`
+  );
+};

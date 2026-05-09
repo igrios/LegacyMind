@@ -12,9 +12,11 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
+import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
+
 
 @Component
 public class RegexLegacyParserAdapter implements LegacyParserPort {
@@ -72,6 +74,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         List<SubprogramNode> subprograms = subprogramExtractor.extract(sourceCode, name);
 
         System.out.println("SUBPROGRAMS >>> " + subprograms.size());
+
         // =============================
         // TABLES
         // =============================
@@ -90,6 +93,11 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // RELATIONS
         // =============================
         List<String> relations = extractSemanticRelations(sql);
+
+        // =============================
+        // KNOWLEDGE RELATIONS
+        // =============================
+        List<KnowledgeRelation> knowledgeRelations = extractKnowledgeRelations(sourceCode, name);
 
         // =============================
         // CODE SMELLS
@@ -130,8 +138,31 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         String summary = "The " + type + " " + name + " interacts with " + referencedTables.size()
                 + " tables and has a risk level of " + riskLevel + ".";
 
-        return new LegacyObject(UUID.randomUUID().toString(), name, type, procedures,
-                referencedTables, subprograms, sourceCode, smells, score, riskLevel, summary);
+        return new LegacyObject(
+
+                UUID.randomUUID().toString(),
+
+                name,
+
+                type,
+
+                procedures,
+
+                referencedTables,
+
+                subprograms,
+
+                knowledgeRelations,
+
+                sourceCode,
+
+                smells,
+
+                score,
+
+                riskLevel,
+
+                summary);
     }
 
     // =============================
@@ -156,9 +187,6 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         for (String stmt : statements) {
 
-            // =============================
-            // UPDATE
-            // =============================
             Matcher update = updatePattern.matcher(stmt);
 
             if (update.find()) {
@@ -171,9 +199,6 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 }
             }
 
-            // =============================
-            // INSERT
-            // =============================
             Matcher insert = insertPattern.matcher(stmt);
 
             if (insert.find()) {
@@ -211,8 +236,6 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         }
 
         System.out.println("RELATIONS >>> " + relations);
-        
-
 
         return new ArrayList<>(relations);
     }
@@ -339,4 +362,219 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                         "DELETE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR",
                         "COUNT", "SUM", "AVG", "EXTRACT", "SYSDATE").contains(table);
     }
+
+
+    private List<KnowledgeRelation> extractKnowledgeRelations(
+        String sourceCode,
+        String objectName
+) {
+
+    List<KnowledgeRelation> relations =
+            new ArrayList<>();
+
+    // =============================
+    // CALLS
+    // =============================
+
+    Pattern callPattern =
+            Pattern.compile(
+                    "(\\w+)\\.(\\w+)\\s*\\(",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    Matcher matcher =
+            callPattern.matcher(sourceCode);
+
+    while (matcher.find()) {
+
+        String packageName =
+                matcher.group(1).toUpperCase();
+
+        String procedureName =
+                matcher.group(2).toUpperCase();
+
+        // evitar self calls
+        if (packageName.equals(objectName)) {
+            continue;
+        }
+
+        relations.add(
+
+                new KnowledgeRelation(
+
+                        objectName,
+
+                        "CALLS",
+
+                        packageName
+                )
+        );
+
+        System.out.println(
+
+                "CALL DETECTED >>> "
+                        + objectName
+                        + " -> "
+                        + packageName
+                        + "."
+                        + procedureName
+        );
+    }
+
+    // =============================
+    // READS
+    // =============================
+
+    List<String> readTables =
+            extractReadTables(
+                    sourceCode.toUpperCase()
+            );
+
+    for (String table : readTables) {
+
+        relations.add(
+
+                new KnowledgeRelation(
+
+                        objectName,
+
+                        "READS",
+
+                        table
+                )
+        );
+
+        System.out.println(
+
+                "READ DETECTED >>> "
+                        + objectName
+                        + " -> "
+                        + table
+        );
+    }
+
+    // =============================
+    // WRITES
+    // =============================
+
+    List<String> writeTables =
+            extractWriteTables(
+                    sourceCode.toUpperCase()
+            );
+
+    for (String table : writeTables) {
+
+        relations.add(
+
+                new KnowledgeRelation(
+
+                        objectName,
+
+                        "WRITES",
+
+                        table
+                )
+        );
+
+        System.out.println("WRITE DETECTED >>> " + objectName + " -> " + table);
+    }
+
+    return relations
+            .stream()
+            .distinct()
+            .toList();
+}
+
+private List<String> extractReadTables(
+        String sourceCode
+) {
+
+    List<String> result =
+            new ArrayList<>();
+
+    Pattern pattern =
+            Pattern.compile(
+                    "\\bFROM\\s+([A-Z0-9_]+)",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    Matcher matcher =
+            pattern.matcher(sourceCode);
+
+    while (matcher.find()) {
+
+        String table =
+                matcher.group(1)
+                        .toUpperCase();
+
+        if (isValidTable(table)) {
+
+            result.add(table);
+        }
+    }
+
+    return result.stream()
+            .distinct()
+            .toList();
+}
+
+private List<String> extractWriteTables(
+        String sourceCode
+) {
+
+    List<String> result =
+            new ArrayList<>();
+
+    // UPDATE
+
+    Pattern updatePattern =
+            Pattern.compile(
+                    "\\bUPDATE\\s+([A-Z0-9_]+)",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    Matcher updateMatcher =
+            updatePattern.matcher(sourceCode);
+
+    while (updateMatcher.find()) {
+
+        String table =
+                updateMatcher.group(1)
+                        .toUpperCase();
+
+        if (isValidTable(table)) {
+
+            result.add(table);
+        }
+    }
+
+    // INSERT INTO
+
+    Pattern insertPattern =
+            Pattern.compile(
+                    "\\bINSERT\\s+INTO\\s+([A-Z0-9_]+)",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    Matcher insertMatcher =
+            insertPattern.matcher(sourceCode);
+
+    while (insertMatcher.find()) {
+
+        String table =
+                insertMatcher.group(1)
+                        .toUpperCase();
+
+        if (isValidTable(table)) {
+
+            result.add(table);
+        }
+    }
+
+    return result.stream()
+            .distinct()
+            .toList();
+}
+
+
 }

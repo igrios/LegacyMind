@@ -1,7 +1,9 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -55,11 +57,14 @@ public class SubprogramExtractor {
 
         while (matcher.find()) {
 
-            SubprogramNode node =
-                    new SubprogramNode();
+            String body =
+                    matcher.group();
 
             String procedureName =
                     matcher.group(1);
+
+            SubprogramNode node =
+                    new SubprogramNode();
 
             node.setName(
                     procedureName
@@ -74,7 +79,19 @@ public class SubprogramExtractor {
             );
 
             node.setBody(
-                    matcher.group()
+                    body
+            );
+
+            node.setReads(
+                    extractReads(body)
+            );
+
+            node.setWrites(
+                    extractWrites(body)
+            );
+
+            node.setCalls(
+                    extractCalls(body)
             );
 
             result.add(node);
@@ -94,11 +111,14 @@ public class SubprogramExtractor {
 
         while (matcher.find()) {
 
-            SubprogramNode node =
-                    new SubprogramNode();
+            String body =
+                    matcher.group();
 
             String functionName =
                     matcher.group(1);
+
+            SubprogramNode node =
+                    new SubprogramNode();
 
             node.setName(
                     functionName
@@ -113,10 +133,110 @@ public class SubprogramExtractor {
             );
 
             node.setBody(
-                    matcher.group()
+                    body
+            );
+
+            node.setReads(
+                    extractReads(body)
+            );
+
+            node.setWrites(
+                    extractWrites(body)
+            );
+
+            node.setCalls(
+                    extractCalls(body)
             );
 
             result.add(node);
         }
+    }
+
+    private List<String> extractReads(String body) {
+
+        Set<String> reads =
+                new HashSet<>();
+
+        Pattern pattern =
+                Pattern.compile(
+                        "\\bFROM\\s+(\\w+)",
+                        Pattern.CASE_INSENSITIVE
+                );
+
+        Matcher matcher =
+                pattern.matcher(body);
+
+        while (matcher.find()) {
+
+            reads.add(
+                    matcher.group(1).toUpperCase()
+            );
+        }
+
+        return reads.stream().toList();
+    }
+
+    private List<String> extractWrites(String body) {
+
+        Set<String> writes =
+                new HashSet<>();
+
+        Pattern updatePattern =
+                Pattern.compile(
+                        "\\bUPDATE\\s+(\\w+)",
+                        Pattern.CASE_INSENSITIVE
+                );
+
+        Pattern insertPattern =
+                Pattern.compile(
+                        "\\bINSERT\\s+INTO\\s+(\\w+)",
+                        Pattern.CASE_INSENSITIVE
+                );
+
+        Matcher updateMatcher =
+                updatePattern.matcher(body);
+
+        while (updateMatcher.find()) {
+
+            writes.add(
+                    updateMatcher.group(1).toUpperCase()
+            );
+        }
+
+        Matcher insertMatcher =
+                insertPattern.matcher(body);
+
+        while (insertMatcher.find()) {
+
+            writes.add(
+                    insertMatcher.group(1).toUpperCase()
+            );
+        }
+
+        return writes.stream().toList();
+    }
+
+    private List<String> extractCalls(String body) {
+
+        Set<String> calls =
+                new HashSet<>();
+
+        Pattern pattern =
+                Pattern.compile(
+                        "(\\w+)\\.(\\w+)\\s*\\(",
+                        Pattern.CASE_INSENSITIVE
+                );
+
+        Matcher matcher =
+                pattern.matcher(body);
+
+        while (matcher.find()) {
+
+            calls.add(
+                    matcher.group(1).toUpperCase()
+            );
+        }
+
+        return calls.stream().toList();
     }
 }

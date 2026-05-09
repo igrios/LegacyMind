@@ -1,95 +1,102 @@
 import { useState } from "react";
+
 import ControlPanel from "./components/ControlPanel";
 import GraphView from "./components/GraphView";
 import SidePanel from "./components/SidePanel";
-import { getGraph } from "./services/api";
-import mapToFlow from "./utils/layout";
+import getLayoutedElements from "./utils/layout";
+import { getKnowledgeGraph } from "./services/api";
 
 function App() {
+
   const [nodes, setNodes] = useState([]);
+
   const [edges, setEdges] = useState([]);
-  const [expandedNodes, setExpandedNodes] = useState(new Set());
+
   const [selectedNode, setSelectedNode] = useState(null);
 
-  // 🔵 Analizar tabla inicial
-  const handleAnalyze = async (table) => {
+  // 🔥 Cargar Knowledge Graph persistido
+  const handleAnalyze = async () => {
+
     try {
-      console.log("Analizando:", table);
 
-      const res = await getGraph(table);
-      console.log("DATA:", res.data);
+      console.log("Cargando Knowledge Graph...");
 
-      const result = mapToFlow(res.data, table, new Set([table]));
+      const res = await getKnowledgeGraph();
 
-      setNodes(result.nodes);
-      setEdges(result.edges);
+      console.log("GRAPH:", res.data);
 
-      setExpandedNodes(new Set([table]));
-      setSelectedNode(table);
+      // 🔵 Nodos
+      const flowNodes = res.data.nodes.map((node, index) => ({
+
+        id: node,
+
+        data: {
+          label: node
+        },
+
+        position: {
+          x: index * 250,
+          y: 150
+        }
+      }));
+
+      // 🔗 Edges
+      const flowEdges = res.data.edges.map((edge, index) => ({
+
+        id: `edge-${index}`,
+
+        source: edge.source,
+
+        target: edge.target,
+
+        label: edge.relation,
+
+        animated: true
+      }));
+
+    const layouted =
+  getLayoutedElements(
+    flowNodes,
+    flowEdges
+  );
+
+setNodes(layouted.nodes);
+
+setEdges(layouted.edges);
     } catch (err) {
-      console.error("Error analyze:", err);
+
+      console.error("Error loading graph:", err);
     }
   };
 
-  // 🔥 Click en nodo → expandir
-  const handleNodeClick = async (nodeId) => {
+  // 🖱 Click nodo
+  const handleNodeClick = (nodeId) => {
+
+    console.log("Nodo seleccionado:", nodeId);
+
     setSelectedNode(nodeId);
-
-    // 🚫 evitar repetir requests
-    if (expandedNodes.has(nodeId)) {
-      console.log("Ya expandido:", nodeId);
-      return;
-    }
-
-    try {
-      console.log("Expandiendo:", nodeId);
-
-      const res = await getGraph(nodeId);
-
-      const result = mapToFlow(res.data, nodeId, expandedNodes);
-
-      // 🧩 merge nodos
-      setNodes((prevNodes) => {
-        const existingIds = new Set(prevNodes.map((n) => n.id));
-        return [
-          ...prevNodes,
-          ...result.nodes.filter((n) => !existingIds.has(n.id)),
-        ];
-      });
-
-      // 🔗 merge edges
-      setEdges((prevEdges) => {
-        const existingIds = new Set(prevEdges.map((e) => e.id));
-        return [
-          ...prevEdges,
-          ...result.edges.filter((e) => !existingIds.has(e.id)),
-        ];
-      });
-
-      // ✔ marcar como expandido
-      setExpandedNodes((prev) => {
-        const updated = new Set(prev);
-        updated.add(nodeId);
-        return updated;
-      });
-    } catch (err) {
-      console.error("Error expandiendo:", err);
-    }
   };
 
-  // 🔄 Reset completo
+  // 🔄 Reset
   const handleReset = () => {
-    console.log("Reset grafo");
+
+    console.log("Reset graph");
 
     setNodes([]);
+
     setEdges([]);
-    setExpandedNodes(new Set());
+
     setSelectedNode(null);
   };
 
   return (
+
     <div>
-      <ControlPanel onAnalyze={handleAnalyze} onReset={handleReset} />
+
+      <ControlPanel
+        onAnalyze={handleAnalyze}
+        onReset={handleReset}
+      />
 
       <GraphView
         nodes={nodes}
@@ -98,6 +105,7 @@ function App() {
       />
 
       <SidePanel node={selectedNode} />
+
     </div>
   );
 }
