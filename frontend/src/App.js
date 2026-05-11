@@ -1,110 +1,746 @@
 import { useState } from "react";
 
-import ControlPanel from "./components/ControlPanel";
 import GraphView from "./components/GraphView";
-import SidePanel from "./components/SidePanel";
-import getLayoutedElements from "./utils/layout";
+
 import { getKnowledgeGraph } from "./services/api";
 
 function App() {
 
-  const [nodes, setNodes] = useState([]);
+  const [nodes, setNodes] =
+    useState([]);
 
-  const [edges, setEdges] = useState([]);
+  const [edges, setEdges] =
+    useState([]);
 
-  const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedNode,
+    setSelectedNode] =
+    useState(null);
 
-  // 🔥 Cargar Knowledge Graph persistido
-  const handleAnalyze = async () => {
+  // ===================================================
+  // 🔥 ANALYZE
+  // ===================================================
 
-    try {
+  const handleAnalyze =
+    async () => {
 
-      console.log("Cargando Knowledge Graph...");
+      try {
 
-      const res = await getKnowledgeGraph();
+        console.log(
+          "Loading Knowledge Graph..."
+        );
 
-      console.log("GRAPH:", res.data);
+        const res =
+          await getKnowledgeGraph();
 
-      // 🔵 Nodos
-      const flowNodes = res.data.nodes.map((node, index) => ({
+        console.log(
+          "GRAPH:",
+          res.data
+        );
 
-        id: node,
+        // ===================================================
+        // 🔗 EDGES
+        // ===================================================
 
-        data: {
-          label: node
-        },
+        const flowEdges =
+          res.data.edges.map(
+            (edge, index) => ({
 
-        position: {
-          x: index * 250,
-          y: 150
-        }
-      }));
+              id:
+                `edge-${index}`,
 
-      // 🔗 Edges
-      const flowEdges = res.data.edges.map((edge, index) => ({
+              source:
+                edge.source,
 
-        id: `edge-${index}`,
+              target:
+                edge.target,
 
-        source: edge.source,
+              label:
+                edge.relation,
 
-        target: edge.target,
+              relation:
+                edge.relation,
 
-        label: edge.relation,
+              animated:
+                true
+            })
+          );
 
-        animated: true
-      }));
+        // ===================================================
+        // 🔥 CENTRALITY
+        // ===================================================
 
-    const layouted =
-  getLayoutedElements(
-    flowNodes,
-    flowEdges
-  );
+        const degreeMap = {};
 
-setNodes(layouted.nodes);
+        flowEdges.forEach(edge => {
 
-setEdges(layouted.edges);
-    } catch (err) {
+          degreeMap[edge.source] =
+            (degreeMap[edge.source] || 0) + 1;
 
-      console.error("Error loading graph:", err);
-    }
-  };
+          degreeMap[edge.target] =
+            (degreeMap[edge.target] || 0) + 1;
+        });
 
-  // 🖱 Click nodo
-  const handleNodeClick = (nodeId) => {
+        // ===================================================
+        // 🔵 NODES
+        // ===================================================
 
-    console.log("Nodo seleccionado:", nodeId);
+        const flowNodes =
 
-    setSelectedNode(nodeId);
-  };
+          res.data.nodes
 
-  // 🔄 Reset
-  const handleReset = () => {
+            .filter(
+              node => node != null
+            )
 
-    console.log("Reset graph");
+            .map(
+              (node, index) => {
 
-    setNodes([]);
+                // ===================================================
+                // 🔥 TYPE
+                // ===================================================
 
-    setEdges([]);
+                let nodeType =
+                  "TABLE";
 
-    setSelectedNode(null);
-  };
+                if (
+                  node.startsWith(
+                    "PKG_"
+                  )
+                ) {
+
+                  nodeType =
+                    "PACKAGE";
+                }
+
+                else if (
+                  node.startsWith(
+                    "SP_"
+                  )
+                ) {
+
+                  nodeType =
+                    "PROCEDURE";
+                }
+
+                else if (
+                  node.startsWith(
+                    "TRG_"
+                  )
+                ) {
+
+                  nodeType =
+                    "TRIGGER";
+                }
+
+                else if (
+
+                  node.startsWith(
+                    "V_"
+                  )
+
+                  ||
+
+                  node.startsWith(
+                    "VW_"
+                  )
+                ) {
+
+                  nodeType =
+                    "VIEW";
+                }
+
+                else if (
+                  node.startsWith(
+                    "DBMS_"
+                  )
+                ) {
+
+                  nodeType =
+                    "SYSTEM";
+                }
+
+                else if (
+                  node.startsWith(
+                    "REGLA_"
+                  )
+                ) {
+
+                  nodeType =
+                    "RULE";
+                }
+
+                // ===================================================
+                // 🎨 COLORS
+                // ===================================================
+
+                let background =
+                  "#22c55e";
+
+                if (
+                  nodeType ===
+                  "PACKAGE"
+                ) {
+
+                  background =
+                    "#3b82f6";
+                }
+
+                else if (
+                  nodeType ===
+                  "PROCEDURE"
+                ) {
+
+                  background =
+                    "#0ea5e9";
+                }
+
+                else if (
+                  nodeType ===
+                  "TRIGGER"
+                ) {
+
+                  background =
+                    "#f97316";
+                }
+
+                else if (
+                  nodeType ===
+                  "VIEW"
+                ) {
+
+                  background =
+                    "#a855f7";
+                }
+
+                else if (
+                  nodeType ===
+                  "SYSTEM"
+                ) {
+
+                  background =
+                    "#6b7280";
+                }
+
+                else if (
+                  nodeType ===
+                  "RULE"
+                ) {
+
+                  background =
+                    "#ef4444";
+                }
+
+                // ===================================================
+                // 🔥 CRITICALITY
+                // ===================================================
+
+                const degree =
+                  degreeMap[node] || 0;
+
+                let width = 180;
+
+                let height = 55;
+
+                let borderWidth = 1;
+
+                if (degree >= 6) {
+
+                  width = 320;
+
+                  height = 90;
+
+                  borderWidth = 5;
+                }
+
+                else if (
+                  degree >= 3
+                ) {
+
+                  width = 240;
+
+                  height = 70;
+
+                  borderWidth = 3;
+                }
+
+                return {
+
+                  id: node,
+
+                  position: {
+
+                    x:
+                      150 +
+                      (index % 4) * 320,
+
+                    y:
+                      100 +
+                      Math.floor(
+                        index / 4
+                      ) * 220
+                  },
+
+                  data: {
+
+                    label:
+                      node,
+
+                    nodeType,
+
+                    degree
+                  },
+
+                  style: {
+
+                    background,
+
+                    color:
+                      "white",
+
+                    border:
+                      `${borderWidth}px solid #111`,
+
+                    borderRadius:
+                      "12px",
+
+                    padding:
+                      "10px",
+
+                    width,
+
+                    height,
+
+                    fontWeight:
+                      "bold",
+
+                    fontSize:
+                      degree >= 6
+                        ? "18px"
+                        : "14px",
+
+                    boxShadow:
+
+                      degree >= 6
+
+                        ?
+
+                        "0 0 20px rgba(255,0,0,0.5)"
+
+                        :
+
+                        "0 0 10px rgba(0,0,0,0.2)",
+
+                    transition:
+                      "all 0.3s ease"
+                  }
+                };
+              }
+            );
+
+        setNodes(
+          flowNodes
+        );
+
+        setEdges(
+          flowEdges
+        );
+
+      } catch (err) {
+
+        console.error(
+          "ERROR:",
+          err
+        );
+      }
+    };
+
+  // ===================================================
+  // 🖱 NODE CLICK
+  // ===================================================
+
+  const handleNodeClick =
+    (nodeId) => {
+
+      console.log(
+        "NODE CLICK:",
+        nodeId
+      );
+
+      const node =
+        nodes.find(
+          n => n.id === nodeId
+        );
+
+      if (!node) {
+
+        return;
+      }
+
+      const relatedEdges =
+        edges.filter(
+
+          e =>
+
+            e.source === nodeId
+
+            ||
+
+            e.target === nodeId
+        );
+
+      // =====================================
+      // 🔥 BLAST RADIUS
+      // =====================================
+
+      const connectedNodeIds =
+        new Set();
+
+      relatedEdges.forEach(edge => {
+
+        connectedNodeIds.add(
+          edge.source
+        );
+
+        connectedNodeIds.add(
+          edge.target
+        );
+      });
+
+      // =====================================
+      // 🔥 UPDATE NODE STYLES
+      // =====================================
+
+      setNodes(prevNodes =>
+
+        prevNodes.map(node => {
+
+          const isHighlighted =
+            connectedNodeIds.has(
+              node.id
+            );
+
+          return {
+
+            ...node,
+
+            style: {
+
+              ...node.style,
+
+              opacity:
+                isHighlighted
+                  ? 1
+                  : 0.15
+            }
+          };
+        })
+      );
+
+      setSelectedNode({
+
+        ...node,
+
+        relatedEdges
+      });
+    };
+
+  // ===================================================
+  // 🔄 RESET HIGHLIGHT
+  // ===================================================
+
+  const resetHighlight =
+    () => {
+
+      setNodes(prevNodes =>
+
+        prevNodes.map(node => ({
+
+          ...node,
+
+          style: {
+
+            ...node.style,
+
+            opacity: 1
+          }
+        }))
+      );
+
+      setSelectedNode(null);
+    };
+
+  // ===================================================
+  // UI
+  // ===================================================
 
   return (
 
     <div>
 
-      <ControlPanel
-        onAnalyze={handleAnalyze}
-        onReset={handleReset}
-      />
+      <div
+
+        style={{
+
+          position:
+            "absolute",
+
+          zIndex:
+            1000,
+
+          top:
+            20,
+
+          left:
+            20,
+
+          display:
+            "flex",
+
+          gap:
+            "10px"
+        }}
+      >
+
+        <button
+
+          onClick={
+            handleAnalyze
+          }
+
+          style={{
+
+            padding:
+              "10px",
+
+            borderRadius:
+              "8px",
+
+            border:
+              "none",
+
+            background:
+              "#111827",
+
+            color:
+              "white",
+
+            cursor:
+              "pointer"
+          }}
+        >
+
+          Analyze
+
+        </button>
+
+        <button
+
+          onClick={
+            resetHighlight
+          }
+
+          style={{
+
+            padding:
+              "10px",
+
+            borderRadius:
+              "8px",
+
+            border:
+              "none",
+
+            background:
+              "#dc2626",
+
+            color:
+              "white",
+
+            cursor:
+              "pointer"
+          }}
+        >
+
+          Reset
+
+        </button>
+
+      </div>
+
+      {
+
+        selectedNode && (
+
+          <div
+
+            style={{
+
+              position:
+                "absolute",
+
+              right:
+                0,
+
+              top:
+                0,
+
+              width:
+                "320px",
+
+              height:
+                "100vh",
+
+              background:
+                "#111827",
+
+              color:
+                "white",
+
+              zIndex:
+                1000,
+
+              padding:
+                "20px",
+
+              overflow:
+                "auto"
+            }}
+          >
+
+            <h2>
+
+              {
+                selectedNode
+                  .data
+                  .label
+              }
+
+            </h2>
+
+            <hr />
+
+            <p>
+
+              <strong>
+
+                Type:
+
+              </strong>
+
+              {" "}
+
+              {
+                selectedNode
+                  .data
+                  .nodeType
+              }
+
+            </p>
+
+            <p>
+
+              <strong>
+
+                Criticality:
+
+              </strong>
+
+              {" "}
+
+              {
+                selectedNode
+                  .data
+                  .degree
+              }
+
+            </p>
+
+            <p>
+
+              <strong>
+
+                Relations:
+
+              </strong>
+
+              {" "}
+
+              {
+                selectedNode
+                  .relatedEdges
+                  .length
+              }
+
+            </p>
+
+            <hr />
+
+            <h3>
+
+              Connected Edges
+
+            </h3>
+
+            {
+
+              selectedNode
+                .relatedEdges
+                .map(
+
+                  (edge, index) => (
+
+                    <div
+                      key={index}
+                      style={{
+                        marginBottom:
+                          "10px"
+                      }}
+                    >
+
+                      <strong>
+
+                        {
+                          edge.relation
+                        }
+
+                      </strong>
+
+                      <br />
+
+                      {
+
+                        edge.source
+
+                      }
+
+                      {" → "}
+
+                      {
+
+                        edge.target
+
+                      }
+
+                    </div>
+                  )
+                )
+            }
+
+          </div>
+        )
+      }
 
       <GraphView
-        nodes={nodes}
-        edges={edges}
-        onNodeClick={handleNodeClick}
-      />
 
-      <SidePanel node={selectedNode} />
+        nodes={nodes}
+
+        edges={edges}
+
+        onNodeClick={
+          handleNodeClick
+        }
+
+      />
 
     </div>
   );

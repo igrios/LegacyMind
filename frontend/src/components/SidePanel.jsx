@@ -1,29 +1,59 @@
 export default function SidePanel({ node }) {
-  if (!node) return null;
+
+  if (!node) {
+
+    return (
+
+      <div
+        style={{
+          position: "absolute",
+          right: 0,
+          top: 0,
+          width: "250px",
+          height: "100%",
+          background: "#111827",
+          color: "white",
+          padding: "20px"
+        }}
+      >
+
+        <h2>LegacyMind</h2>
+
+        <p>Seleccioná un nodo</p>
+
+      </div>
+    );
+  }
 
   return (
-    <div style={{
-      position: "absolute",
-      right: 0,
-      top: 0,
-      width: "260px",
-      height: "100%",
-      background: "#111",
-      color: "#fff",
-      padding: "15px"
-    }}>
-      <h2>{node}</h2>
 
-      <p><b>Tipo:</b> {node.startsWith("PRC_") ? "Procedure" : "Tabla"}</p>
+    <div
+      style={{
+        position: "absolute",
+        right: 0,
+        top: 0,
+        width: "250px",
+        height: "100%",
+        background: "#111827",
+        color: "white",
+        padding: "20px"
+      }}
+    >
 
-      <p><b>Impacto estimado:</b> Medio</p>
-      <p><b>Operaciones:</b> READ / WRITE</p>
+      <h2>{node.data.label}</h2>
 
       <hr />
 
-      <p style={{ fontSize: "12px", opacity: 0.7 }}>
-        Click en nodos para explorar dependencias.
+      <p>
+
+        <strong>Tipo:</strong>
+
+        {" "}
+
+        {node.data.nodeType}
+
       </p>
+
     </div>
   );
 }
