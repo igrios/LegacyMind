@@ -1,138 +1,367 @@
-
 import React from "react";
 
 export default function OraclePackageUploader() {
+
   const [sourceCode, setSourceCode] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
+
   const [response, setResponse] = React.useState(null);
-  const [error, setError] = React.useState(null);
+
+  const [loading, setLoading] = React.useState(false);
 
   const API_URL = process.env.REACT_APP_API_URL;
 
+  // =====================================================
+  // FILE UPLOAD
+  // =====================================================
+
   const handleFileUpload = async (event) => {
+
     const file = event.target.files?.[0];
 
     if (!file) return;
 
-    try {
-      const text = await file.text();
-      setSourceCode(text);
-    } catch (err) {
-      console.error(err);
-      setError("No se pudo leer el archivo.");
-    }
+    const text = await file.text();
+
+    setSourceCode(text);
   };
 
-  const buildPayload = () => {
-    return {
-      sourceCode,
-    };
-  };
+  // =====================================================
+  // ANALYZE
+  // =====================================================
 
   const handleAnalyze = async () => {
-    setLoading(true);
-    setError(null);
-    setResponse(null);
 
     try {
-      const payload = buildPayload();
 
-      const res = await fetch(`${API_URL}/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      setLoading(true);
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      const res = await fetch(
+
+        `${API_URL}/analyze`,
+
+        {
+
+          method: "POST",
+
+          headers: {
+
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+
+            sourceCode
+          })
+        }
+      );
 
       const data = await res.json();
+
       setResponse(data);
+
     } catch (err) {
+
       console.error(err);
-      setError("Error analizando paquete PL/SQL");
+
     } finally {
+
       setLoading(false);
     }
   };
 
+  // =====================================================
+  // UI
+  // =====================================================
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">LegacyMind</h1>
-          <p className="text-gray-600">
-            Subí paquetes Oracle PL/SQL o pegá código manualmente para analizar dependencias y relaciones.
-          </p>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center bg-gray-50">
-              <input
-                type="file"
-                accept=".sql,.pck,.pkb,.pkg,.txt"
-                onChange={handleFileUpload}
-                className="mb-4"
-              />
+    <div
+      style={{
+        padding: "30px",
+        height: "100vh",
+        overflow: "auto",
+        background: "#0f172a",
+        color: "white"
+      }}
+    >
 
-              <p className="text-sm text-gray-500">
-                Formatos soportados: .sql .pck .pkb .pkg
-              </p>
-            </div>
+      {/* ========================================= */}
+      {/* HEADER */}
+      {/* ========================================= */}
 
-            <div>
-              <label className="block font-semibold mb-2">
-                Código fuente Oracle
-              </label>
+      <div
+        style={{
+          marginBottom: "25px"
+        }}
+      >
 
-              <textarea
-                value={sourceCode}
-                onChange={(e) => setSourceCode(e.target.value)}
-                placeholder="Pegá acá packages Oracle PL/SQL..."
-                className="w-full h-[500px] p-4 border rounded-2xl font-mono text-sm bg-black text-green-400"
-              />
-            </div>
-          </div>
+        <h1
+          style={{
+            fontSize: "42px",
+            marginBottom: "10px"
+          }}
+        >
+          Oracle Package Analyzer
+        </h1>
 
-          <div className="space-y-4">
-            <div className="bg-gray-900 text-green-400 rounded-2xl p-4 h-[300px] overflow-auto">
-              <h2 className="font-bold mb-2 text-white">Payload generado</h2>
+        <p
+          style={{
+            color: "#94a3b8",
+            fontSize: "16px"
+          }}
+        >
+          Upload Oracle PL/SQL packages and analyze dependencies,
+          procedures, tables and legacy risk.
+        </p>
 
-              <pre className="text-xs whitespace-pre-wrap break-words">
-                {JSON.stringify(buildPayload(), null, 2)}
-              </pre>
-            </div>
-
-            <button
-              onClick={handleAnalyze}
-              disabled={loading || !sourceCode}
-              className="w-full bg-black text-white rounded-2xl py-4 font-semibold hover:opacity-90 disabled:opacity-50"
-            >
-              {loading ? "Analizando..." : "Analizar paquete"}
-            </button>
-
-            {error && (
-              <div className="bg-red-100 border border-red-300 text-red-700 rounded-2xl p-4">
-                {error}
-              </div>
-            )}
-
-            {response && (
-              <div className="bg-gray-900 text-green-400 rounded-2xl p-4 h-[400px] overflow-auto">
-                <h2 className="font-bold mb-2 text-white">Respuesta API</h2>
-
-                <pre className="text-xs whitespace-pre-wrap break-words">
-                  {JSON.stringify(response, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
+
+      {/* ========================================= */}
+      {/* FILE UPLOAD */}
+      {/* ========================================= */}
+
+      <div
+        style={{
+          background: "#111827",
+          borderRadius: "18px",
+          padding: "25px",
+          marginBottom: "25px",
+          border: "1px solid #1f2937"
+        }}
+      >
+
+        <h2
+          style={{
+            marginBottom: "15px"
+          }}
+        >
+          Upload Package
+        </h2>
+
+        <input
+          type="file"
+          accept=".sql,.pck,.pkb,.pkg,.txt"
+          onChange={handleFileUpload}
+          style={{
+            marginBottom: "15px"
+          }}
+        />
+
+        <p
+          style={{
+            color: "#94a3b8"
+          }}
+        >
+          Supported formats:
+          {" "}
+          .sql .pck .pkb .pkg
+        </p>
+
+      </div>
+
+      {/* ========================================= */}
+      {/* SOURCE CODE */}
+      {/* ========================================= */}
+
+      <div
+        style={{
+          background: "#111827",
+          borderRadius: "18px",
+          padding: "25px",
+          border: "1px solid #1f2937"
+        }}
+      >
+
+        <h2
+          style={{
+            marginBottom: "15px"
+          }}
+        >
+          Oracle Source Code
+        </h2>
+
+        <textarea
+
+          value={sourceCode}
+
+          onChange={(e) => setSourceCode(e.target.value)}
+
+          placeholder="Paste Oracle PL/SQL package here..."
+
+          style={{
+
+            width: "100%",
+
+            height: "350px",
+
+            background: "#020617",
+
+            color: "#22c55e",
+
+            border: "1px solid #334155",
+
+            borderRadius: "14px",
+
+            padding: "18px",
+
+            fontFamily: "monospace",
+
+            fontSize: "14px",
+
+            resize: "vertical",
+
+            outline: "none",
+
+            lineHeight: "1.6"
+          }}
+        />
+
+        <button
+
+          onClick={handleAnalyze}
+
+          disabled={loading || !sourceCode}
+
+          style={{
+
+            marginTop: "20px",
+
+            background: loading
+
+              ? "#475569"
+
+              : "#2563eb",
+
+            color: "white",
+
+            border: "none",
+
+            padding: "14px 24px",
+
+            borderRadius: "12px",
+
+            cursor: "pointer",
+
+            fontWeight: "bold",
+
+            fontSize: "15px"
+          }}
+        >
+
+          {
+            loading
+
+              ?
+
+              "Analyzing..."
+
+              :
+
+              "Analyze Package"
+          }
+
+        </button>
+
+      </div>
+
+      {/* ========================================= */}
+      {/* PAYLOAD */}
+      {/* ========================================= */}
+
+      <div
+        style={{
+          background: "#111827",
+          borderRadius: "18px",
+          padding: "25px",
+          marginTop: "25px",
+          border: "1px solid #1f2937"
+        }}
+      >
+
+        <h2
+          style={{
+            marginBottom: "15px"
+          }}
+        >
+          Generated Payload
+        </h2>
+
+        <pre
+          style={{
+            background: "#020617",
+            padding: "20px",
+            borderRadius: "14px",
+            overflow: "auto",
+            color: "#38bdf8"
+          }}
+        >
+          {
+
+            JSON.stringify(
+
+              {
+                sourceCode
+              },
+
+              null,
+
+              2
+            )
+          }
+        </pre>
+
+      </div>
+
+      {/* ========================================= */}
+      {/* RESPONSE */}
+      {/* ========================================= */}
+
+      {
+
+        response && (
+
+          <div
+            style={{
+              background: "#111827",
+              borderRadius: "18px",
+              padding: "25px",
+              marginTop: "25px",
+              marginBottom: "120px",
+              border: "1px solid #1f2937"
+            }}
+          >
+
+            <h2
+              style={{
+                marginBottom: "15px"
+              }}
+            >
+              Analysis Result
+            </h2>
+
+            <pre
+              style={{
+                background: "#020617",
+                padding: "20px",
+                borderRadius: "14px",
+                overflow: "auto",
+                color: "#22c55e",
+                maxHeight: "700px"
+              }}
+            >
+              {
+                JSON.stringify(
+                  response,
+                  null,
+                  2
+                )
+              }
+            </pre>
+
+          </div>
+        )
+      }
+
     </div>
   );
 }
