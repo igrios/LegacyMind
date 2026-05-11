@@ -25,8 +25,6 @@ function App() {
 
       const res = await getKnowledgeGraph();
 
-      console.log(res.data);
-
       // =========================================
       // EDGES
       // =========================================
@@ -68,10 +66,6 @@ function App() {
       const uniqueNodes = [...new Set(res.data.nodes)];
 
       const flowNodes = uniqueNodes.map((node, index) => {
-
-        // =====================================
-        // TYPE
-        // =====================================
 
         let nodeType = "TABLE";
 
@@ -389,7 +383,7 @@ function App() {
 
           <div
             style={{
-              width: "340px",
+              width: "320px",
               background: "#111827",
               borderLeft: "1px solid #1f2937",
               padding: "22px",
@@ -397,13 +391,52 @@ function App() {
             }}
           >
 
-            <h2
+            {/* HEADER PANEL */}
+
+            <div
               style={{
-                marginBottom: "10px"
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px"
               }}
             >
-              {selectedNode.data.label}
-            </h2>
+
+              <h2
+                style={{
+                  fontSize: "24px"
+                }}
+              >
+                {selectedNode.data.label}
+              </h2>
+
+              <button
+
+                onClick={() => setSelectedNode(null)}
+
+                style={{
+
+                  background: "#dc2626",
+
+                  border: "none",
+
+                  color: "white",
+
+                  borderRadius: "8px",
+
+                  padding: "8px 12px",
+
+                  cursor: "pointer",
+
+                  fontWeight: "bold"
+                }}
+              >
+
+                ✕
+
+              </button>
+
+            </div>
 
             <p>
               <strong>Type:</strong>
