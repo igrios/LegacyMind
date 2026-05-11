@@ -1,0 +1,19 @@
+"🚀 Iniciando LegacyMind..."
+
+# BACKEND - Spring Boot
+gnome-terminal -- bash -c "
+cd ~/Documentos/legacy-analyzer;
+echo '▶ Levantando Spring Boot...';
+./mvnw spring-boot:run;
+exec bash
+"
+
+# FRONTEND - React/npm
+gnome-terminal -- bash -c "
+cd ~/Documentos/legacy-analyzer/frontend;
+echo '▶ Levantando Frontend...';
+npm start;
+exec bash
+"
+
+echo "✅ Backend y Frontend iniciados"
