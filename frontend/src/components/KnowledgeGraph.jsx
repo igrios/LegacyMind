@@ -15,7 +15,7 @@ export default function KnowledgeGraph() {
 
   useEffect(() => {
 
-    fetch("http://localhost:8080/api/legacy/knowledge-graph")
+    fetch(`${process.env.REACT_APP_API_URL}/knowledge-graph`)
 
       .then((response) => response.json())
 
