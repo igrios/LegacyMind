@@ -16,7 +16,7 @@ function App() {
   const [selectedNode, setSelectedNode] = useState(null);
 
   // =====================================================
-  // ANALYZE GRAPH
+  // LOAD GRAPH
   // =====================================================
 
   const handleAnalyze = async () => {
@@ -24,6 +24,8 @@ function App() {
     try {
 
       const res = await getKnowledgeGraph();
+
+      console.log("GRAPH:", res.data);
 
       // =========================================
       // EDGES
@@ -60,12 +62,20 @@ function App() {
       });
 
       // =========================================
-      // NODES
+      // UNIQUE NODES
       // =========================================
 
       const uniqueNodes = [...new Set(res.data.nodes)];
 
+      // =========================================
+      // BUILD NODES
+      // =========================================
+
       const flowNodes = uniqueNodes.map((node, index) => {
+
+        // =====================================
+        // TYPE
+        // =====================================
 
         let nodeType = "TABLE";
 
@@ -303,6 +313,8 @@ function App() {
           }}
         />
 
+        {/* ANALYZE */}
+
         <button
           onClick={handleAnalyze}
           style={buttonStyle("#2563eb")}
@@ -310,12 +322,25 @@ function App() {
           Analyze Graph
         </button>
 
+        {/* OPEN GRAPH */}
+
         <button
-          onClick={() => setScreen("graph")}
+
+          onClick={() => {
+
+            setScreen("graph");
+
+            handleAnalyze();
+          }}
+
           style={buttonStyle("#059669")}
         >
+
           Open Graph
+
         </button>
+
+        {/* UPLOAD */}
 
         <button
           onClick={() => setScreen("upload")}
@@ -323,6 +348,8 @@ function App() {
         >
           Upload Packages
         </button>
+
+        {/* STATS */}
 
         <div
           style={{
@@ -391,7 +418,7 @@ function App() {
             }}
           >
 
-            {/* HEADER PANEL */}
+            {/* HEADER */}
 
             <div
               style={{
