@@ -9,7 +9,7 @@ function App() {
 
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
-  const [selectedNode, setSelectedNode] = useState(null);
+ const [, setSelectedNode] = useState(null);
 
   // =========================================
   // SCREEN
