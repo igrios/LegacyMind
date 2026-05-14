@@ -15,7 +15,9 @@ import org.springframework.stereotype.Component;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
+import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
+import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 
 
 @Component
@@ -24,7 +26,10 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     @Override
     public LegacyObject parse(String sourceCode) {
 
-        String normalized = sourceCode.toUpperCase();
+        String cleanSource = preProcess(sourceCode);
+
+        String normalized = cleanSource.toUpperCase();
+
 
         // limpiar funciones tipo EXTRACT(...)
         String sql = normalized.replaceAll("\\b[A-Z_]+\\s*\\([^()]*\\)", " ");
@@ -81,7 +86,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // READ TABLES
         // =============================
 
-        List<String> readTables = extractReadTables(sourceCode.toUpperCase());
+        List<String> readTables = extractReadTables(normalized);
 
         System.out.println("READ TABLES FINAL >>> " + readTables);
 
@@ -89,7 +94,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // WRITE TABLES
         // =============================
 
-        List<String> writeTables = extractWriteTables(sourceCode.toUpperCase());
+        List<String> writeTables = extractWriteTables(normalized);
 
         System.out.println("WRITE TABLES FINAL >>> " + writeTables);
 
@@ -109,7 +114,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         // RELATIONS
         // =============================
-        List<String> relations = extractSemanticRelations(sql);
+        List<String> relations = extractSemanticRelations(normalized);
 
         // =============================
         // KNOWLEDGE RELATIONS
@@ -194,10 +199,13 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         sql = sql.replace("\n", " ").replace("\r", " ").toUpperCase();
 
-        Pattern updatePattern = Pattern.compile("\\bUPDATE\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        Pattern updatePattern =
+                Pattern.compile("\\\\bUPDATE\\\\s+([A-Z][A-Z0-9_]*(?:\\\\.[A-Z][A-Z0-9_]*)?)",
+                        Pattern.CASE_INSENSITIVE);
 
-        Pattern insertPattern =
-                Pattern.compile("\\bINSERT\\s+INTO\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
+        Pattern insertPattern = Pattern.compile(
+                "\\\\bINSERT\\\\s+INTO\\\\s+([A-Z][A-Z0-9_]*(?:\\\\.[A-Z][A-Z0-9_]*)?)",
+                Pattern.CASE_INSENSITIVE);
 
         String mainTable = detectMainTable(sql);
 
@@ -295,25 +303,30 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     // =============================
     // DETECT MAIN TABLE
     // =============================
-    private String detectMainTable(String sql) {
+    private String detectMainTable(String normalized) {
+
+        // PRIORIDAD 1:
+        // si existe UPDATE, esa suele ser la tabla principal
 
         Pattern updatePattern = Pattern.compile("\\bUPDATE\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
 
-        Matcher m = updatePattern.matcher(sql);
+        Matcher updateMatcher = updatePattern.matcher(normalized);
 
-        if (m.find()) {
-            return clean(m.group(1));
+        if (updateMatcher.find()) {
+
+            String table = clean(updateMatcher.group(1));
+
+            if (isValidTable(table)) {
+                return table;
+            }
         }
+
+        // PRIORIDAD 2:
+        // inferir por frecuencia de lectura
 
         Map<String, Integer> frequency = new HashMap<>();
 
-        Pattern fromPattern = Pattern.compile("\\bFROM\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
-
-        m = fromPattern.matcher(sql);
-
-        while (m.find()) {
-
-            String table = clean(m.group(1));
+        for (String table : extractReadTables(normalized)) {
 
             frequency.put(table, frequency.getOrDefault(table, 0) + 1);
         }
@@ -362,10 +375,10 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
             String table = trimmed.split("\\s+")[0];
 
-            if (table.contains(".")) {
+            // if (table.contains(".")) {
 
-                table = table.substring(table.lastIndexOf(".") + 1);
-            }
+            // table = table.substring(table.lastIndexOf(".") + 1);
+            // }
 
             table = clean(table);
 
@@ -380,8 +393,171 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             }
         }
 
+        Pattern joinPattern =
+                Pattern.compile("\\bJOIN\\s+([A-Z][A-Z0-9_.$#@]*(?:\\.[A-Z][A-Z0-9_.$#@]*)?)",
+                        Pattern.CASE_INSENSITIVE);
+
+        Matcher joinMatcher = joinPattern.matcher(clause);
+
+        while (joinMatcher.find()) {
+
+            String table = clean(joinMatcher.group(1));
+
+            if (table != null && !table.isBlank()) {
+
+                tables.add(table);
+
+                System.out.println("JOIN EXTRACT TABLE >>> " + table);
+            }
+        }
+
         return tables;
     }
+
+
+    public List<TableReference> extractTableReferences(String clause) {
+
+        List<TableReference> references = new ArrayList<>();
+
+        if (clause == null || clause.isBlank()) {
+            return references;
+        }
+
+        List<String> parts = splitTopLevelComma(clause);
+
+        for (String part : parts) {
+
+            String trimmed = part.trim();
+
+            if (trimmed.startsWith("(")) {
+                continue;
+            }
+
+            String[] tokens = trimmed.split("\\s+");
+
+            if (tokens.length == 0) {
+                continue;
+            }
+
+            String table = clean(tokens[0]);
+
+            String alias = null;
+
+            if (tokens.length > 1) {
+
+                String possibleAlias = tokens[1].toUpperCase();
+
+                if (!possibleAlias.equals("INNER") && !possibleAlias.equals("LEFT")
+                        && !possibleAlias.equals("RIGHT") && !possibleAlias.equals("JOIN")
+                        && !possibleAlias.equals("ON")) {
+
+                    alias = possibleAlias;
+                }
+            }
+
+            references.add(new TableReference(table, alias));
+
+            System.out.println("TABLE REF >>> " + table + " alias=" + alias);
+        }
+
+
+        Pattern joinPattern = Pattern.compile(
+                "\\bJOIN\\s+([A-Z][A-Z0-9_.$#@]*(?:\\.[A-Z][A-Z0-9_.$#@]*)?)\\s+([A-Z][A-Z0-9_]*)",
+                Pattern.CASE_INSENSITIVE);
+
+        Matcher joinMatcher = joinPattern.matcher(clause);
+
+        while (joinMatcher.find()) {
+
+            String table = clean(joinMatcher.group(1));
+
+            String alias = joinMatcher.group(2);
+
+            references.add(new TableReference(table, alias));
+
+            System.out.println("JOIN TABLE REF >>> " + table + " alias=" + alias);
+        }
+
+
+        return references;
+    }
+
+
+public List<JoinCondition> extractJoinConditions(String sql) {
+
+    List<JoinCondition> conditions = new ArrayList<>();
+
+    Pattern joinPattern =
+            Pattern.compile(
+                    "([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*=\\s*([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)",
+                    Pattern.CASE_INSENSITIVE);
+
+    Matcher matcher = joinPattern.matcher(sql.toUpperCase());
+
+    while (matcher.find()) {
+
+        String leftAlias = matcher.group(1);
+
+        String leftColumn = matcher.group(2);
+
+        String rightAlias = matcher.group(3);
+
+        String rightColumn = matcher.group(4);
+
+        JoinCondition condition =
+                new JoinCondition(
+                        leftAlias,
+                        leftColumn,
+                        rightAlias,
+                        rightColumn);
+
+        conditions.add(condition);
+
+        System.out.println(
+                "JOIN CONDITION >>> " + condition);
+    }
+
+    return conditions;
+}
+
+public void resolveJoinConditions(
+        List<TableReference> references,
+        List<JoinCondition> conditions) {
+
+    Map<String, String> aliasMap = new HashMap<>();
+
+    for (TableReference ref : references) {
+
+        if (ref.getAlias() != null) {
+
+            aliasMap.put(
+                    ref.getAlias().toUpperCase(),
+                    ref.getFullName());
+        }
+    }
+
+    System.out.println("ALIAS MAP >>> " + aliasMap);
+
+    for (JoinCondition condition : conditions) {
+
+        String leftTable =
+                aliasMap.get(condition.getLeftAlias());
+
+        String rightTable =
+                aliasMap.get(condition.getRightAlias());
+
+        System.out.println(
+                leftTable
+                        + "."
+                        + condition.getLeftColumn()
+                        + " -> "
+                        + rightTable
+                        + "."
+                        + condition.getRightColumn());
+    }
+}
+
+
 
     private void extractFromTables(String sql, Set<String> tables) {
 
@@ -443,21 +619,26 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     }
 
     // INICIO MOD
-    private String extractTopLevelFromClause(String sql) {
+    //
+    public String extractTopLevelFromClause(String sql) {
 
-        String normalized = sql.replaceAll("\\s+", " ");
+        String normalized = sql.replaceAll("\\s+", " ").trim();
 
-        int fromIndex = normalized.toUpperCase().indexOf(" FROM ");
+        Pattern fromPattern = Pattern.compile("\\bFROM\\b", Pattern.CASE_INSENSITIVE);
 
-        if (fromIndex == -1) {
+        Matcher matcher = fromPattern.matcher(normalized);
+
+        if (!matcher.find()) {
             return "";
         }
+
+        int fromIndex = matcher.end();
 
         int depth = 0;
 
         StringBuilder fromClause = new StringBuilder();
 
-        for (int i = fromIndex + 6; i < normalized.length(); i++) {
+        for (int i = fromIndex; i < normalized.length(); i++) {
 
             char current = normalized.charAt(i);
 
@@ -469,20 +650,24 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 depth--;
             }
 
-            String remaining = normalized.substring(i).toUpperCase();
+            if (depth == 0) {
 
-            if (depth == 0 && (remaining.startsWith(" WHERE ") || remaining.startsWith(" GROUP BY ")
-                    || remaining.startsWith(" ORDER BY ")
-                    || remaining.startsWith(" CONNECT BY "))) {
-                break;
+                String remaining = normalized.substring(i).toUpperCase();
+
+                if (remaining.startsWith(" WHERE ") || remaining.startsWith(" GROUP BY ")
+                        || remaining.startsWith(" ORDER BY ")
+                        || remaining.startsWith(" CONNECT BY ") || remaining.startsWith(" HAVING ")
+                        || remaining.startsWith(" UNION ") || remaining.startsWith(" INTERSECT ")
+                        || remaining.startsWith(" MINUS ") || remaining.startsWith(";")) {
+
+                    break;
+                }
             }
 
             fromClause.append(current);
         }
 
         return fromClause.toString().trim();
-
-
     }
 
     //////
@@ -530,16 +715,33 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
     // FIN MOD
 
+    // =============================
+    // PRE PROCESS
+    // =============================
+    private String preProcess(String source) {
+
+        // remove block comments
+        source = source.replaceAll("/\\*.*?\\*/", " ");
+
+        // remove line comments
+        source = source.replaceAll("--.*?(\\r?\\n)", " ");
+
+        // replace string literals
+        source = source.replaceAll("'(?:''|[^'])*'", "''");
+
+        return source;
+    }
+
 
 
     private String clean(String table) {
 
-        return table.replaceAll("[^A-Z0-9_]", "");
+        return table.replaceAll("[^A-Z0-9_.$#@]", "");
     }
 
     private boolean isValidTable(String table) {
 
-        return table != null && !table.isBlank() && table.matches("[A-Z][A-Z0-9_]*")
+        return table != null && !table.isBlank() && table.matches("[A-Z][A-Z0-9_.$#@]*")
                 && !Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
                         "DELETE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR",
                         "GROUP", "ORDER", "BY", "BEGIN", "END", "NULL").contains(table);
@@ -548,8 +750,9 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     private List<KnowledgeRelation> extractKnowledgeRelations(String sourceCode,
             String objectName) {
 
-        List<KnowledgeRelation> relations = new ArrayList<>();
+        String normalized = preProcess(sourceCode).toUpperCase();
 
+        List<KnowledgeRelation> relations = new ArrayList<>();
         // =============================
         // CALLS
         // =============================
@@ -588,7 +791,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // READS
         // =============================
 
-        List<String> readTables = extractReadTables(sourceCode.toUpperCase());
+        List<String> readTables = extractReadTables(normalized);
 
         System.out.println("READ TABLES FINAL >>> " + readTables);
 
@@ -613,7 +816,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // WRITES
         // =============================
 
-        List<String> writeTables = extractWriteTables(sourceCode.toUpperCase());
+        List<String> writeTables = extractWriteTables(normalized);
 
         for (String table : writeTables) {
 
@@ -639,11 +842,15 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         String normalized = sourceCode.toUpperCase();
 
-        int index = 0;
+        Pattern fromPattern = Pattern.compile("\\bFROM\\b", Pattern.CASE_INSENSITIVE);
 
-        while ((index = normalized.indexOf(" FROM ", index)) != -1) {
+        Matcher matcher = fromPattern.matcher(normalized);
 
-            String remaining = normalized.substring(index);
+        while (matcher.find()) {
+
+            int fromIndex = matcher.start();
+
+            String remaining = normalized.substring(fromIndex);
 
             String fromClause = extractTopLevelFromClause(remaining);
 
@@ -657,14 +864,20 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                 String trimmed = part.trim();
 
-                // ignorar subquery completa
+                // =============================
+                // SUBQUERY
+                // =============================
+
                 if (trimmed.startsWith("(")) {
 
-                    // recursion sobre subquery
                     tables.addAll(extractReadTables(trimmed));
 
                     continue;
                 }
+
+                // =============================
+                // NORMAL TABLE
+                // =============================
 
                 String table = trimmed.split("\\s+")[0];
 
@@ -677,9 +890,25 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                     System.out.println("READ TABLE >>> " + table);
                 }
             }
-
-            index += 6;
         }
+        Pattern joinPattern = Pattern.compile("\\bJOIN\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
+                Pattern.CASE_INSENSITIVE);
+
+        Matcher joinMatcher = joinPattern.matcher(normalized);
+
+        while (joinMatcher.find()) {
+
+            String table = clean(joinMatcher.group(1));
+
+            if (isValidTable(table)) {
+
+                tables.add(table);
+
+                System.out.println("JOIN TABLE >>> " + table);
+            }
+        }
+
+
 
         return tables.stream().distinct().toList();
     }
@@ -690,8 +919,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         // UPDATE
 
-        Pattern updatePattern =
-                Pattern.compile("\\bUPDATE\\s+([A-Z0-9_]+)", Pattern.CASE_INSENSITIVE);
+        Pattern updatePattern = Pattern.compile(
+                "\\bUPDATE\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)", Pattern.CASE_INSENSITIVE);
 
         Matcher updateMatcher = updatePattern.matcher(sourceCode);
 
@@ -708,7 +937,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // INSERT INTO
 
         Pattern insertPattern =
-                Pattern.compile("\\bINSERT\\s+INTO\\s+([A-Z0-9_]+)", Pattern.CASE_INSENSITIVE);
+                Pattern.compile("\\bINSERT\\s+INTO\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
+                        Pattern.CASE_INSENSITIVE);
 
         Matcher insertMatcher = insertPattern.matcher(sourceCode);
 
