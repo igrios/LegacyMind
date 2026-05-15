@@ -10,11 +10,17 @@ import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
+import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
+import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
 
 class RegexLegacyParserAdapterTest {
 
-    private final RegexLegacyParserAdapter parser = new RegexLegacyParserAdapter();
-
+    
+private final RegexLegacyParserAdapter parser =
+      new RegexLegacyParserAdapter(
+        new LegacyRiskAnalyzer(),
+        new SqlSemanticExtractor());
+        
     @Test
     void shouldDetectImplicitJoinTables() {
 
@@ -258,5 +264,71 @@ void shouldBuildSemanticModel() {
 
     assertFalse(model.getJoinConditions().isEmpty());
 }
+
+@Test
+void shouldDetectCartesianJoin() {
+
+    String sql = """
+        SELECT *
+        FROM CLIENTES C,
+             PEDIDOS P;
+        """;
+
+    SqlSemanticModel model =
+            parser.buildSemanticModel(sql);
+
+    System.out.println(model);
+
+    assertTrue(
+            model.getFindings()
+                    .stream()
+                    .anyMatch(f ->
+                            f.getType()
+                             .equals("CARTESIAN_JOIN")));
+}
+
+@Test
+void shouldNotDetectCartesianJoin() {
+
+    String sql = """
+        SELECT *
+        FROM CLIENTES C
+        INNER JOIN PEDIDOS P
+            ON C.ID = P.CLIENTE_ID;
+        """;
+
+    SqlSemanticModel model =
+            parser.buildSemanticModel(sql);
+
+    assertFalse(
+            model.getFindings()
+                    .stream()
+                    .anyMatch(f ->
+                            f.getType()
+                             .equals("CARTESIAN_JOIN")));
+}
+
+
+@Test
+void shouldDetectSelectStarRisk() {
+
+    String sql = """
+        SELECT *
+        FROM CLIENTES;
+        """;
+
+    SqlSemanticModel model =
+            parser.buildSemanticModel(sql);
+
+    System.out.println(model);
+
+    assertTrue(
+            model.getFindings()
+                    .stream()
+                    .anyMatch(f ->
+                            f.getType()
+                             .equals("SELECT_STAR")));
+}
+
 
 }

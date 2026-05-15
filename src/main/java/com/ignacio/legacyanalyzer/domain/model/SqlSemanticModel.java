@@ -5,6 +5,8 @@ import java.util.List;
 
 public class SqlSemanticModel {
 
+    private String originalSql;
+
     private List<String> readTables = new ArrayList<>();
 
     private List<String> writeTables = new ArrayList<>();
@@ -14,6 +16,14 @@ public class SqlSemanticModel {
     private List<JoinCondition> joinConditions = new ArrayList<>();
 
     private List<String> semanticRelations = new ArrayList<>();
+
+    private List<RiskFinding> findings = new ArrayList<>();
+
+    private String normalizedSql;
+
+    private int riskScore;
+
+    private String riskLevel;
 
     public List<String> getReadTables() {
         return readTables;
@@ -55,6 +65,46 @@ public class SqlSemanticModel {
         this.semanticRelations = semanticRelations;
     }
 
+    public List<RiskFinding> getFindings() {
+        return findings;
+    }
+
+    public void setFindings(List<RiskFinding> findings) {
+
+        this.findings = findings;
+    }
+
+    public String getOriginalSql() {
+        return originalSql;
+    }
+
+    public void setOriginalSql(String originalSql) {
+        this.originalSql = originalSql;
+    }
+
+    public String getNormalizedSql() {
+        return normalizedSql;
+    }
+
+    public void setNormalizedSql(String normalizedSql) {
+        this.normalizedSql = normalizedSql;
+    }
+
+    public int getRiskScore() {
+        return riskScore;
+    }
+    public void setRiskScore(int riskScore) {
+        this.riskScore = riskScore;
+    }
+
+    public String getRiskLevel() {
+        return riskLevel;
+    }
+    public void setRiskLevel(String riskLevel) {
+        this.riskLevel = riskLevel;
+    }
+    
+
     @Override
     public String toString() {
 
@@ -64,13 +114,11 @@ public class SqlSemanticModel {
                     writeTables=%s,
                     tableReferences=%s,
                     joinConditions=%s,
-                    semanticRelations=%s
+                    semanticRelations=%s,
+                    findings=%s,
+                    originalSql=%s
                 }
-                """.formatted(
-                readTables,
-                writeTables,
-                tableReferences,
-                joinConditions,
-                semanticRelations);
+                """.formatted(readTables, writeTables, tableReferences, joinConditions,
+                semanticRelations, findings, originalSql);
     }
 }
