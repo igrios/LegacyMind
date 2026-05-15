@@ -12,14 +12,17 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
+import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
+import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
-import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 @Component
 public class RegexLegacyParserAdapter implements LegacyParserPort {
 
@@ -78,9 +81,12 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         List<SubprogramNode> subprograms = subprogramExtractor.extract(sourceCode, name);
 
-        System.out.println("SUBPROGRAMS >>> " + subprograms.size());
+       
+        log.debug("SUBPROGRAMS >>> {}", subprograms.size());     
+      
+       log.debug("FROM CLAUSE >>> " + extractTopLevelFromClause(sql));
 
-        System.out.println("FROM CLAUSE >>> " + extractTopLevelFromClause(sql));
+
 
         // =============================
         // READ TABLES
@@ -88,7 +94,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         List<String> readTables = extractReadTables(normalized);
 
-        System.out.println("READ TABLES FINAL >>> " + readTables);
+        log.debug("READ TABLES FINAL >>> {}", readTables);
 
         // =============================
         // WRITE TABLES
@@ -96,7 +102,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         List<String> writeTables = extractWriteTables(normalized);
 
-        System.out.println("WRITE TABLES FINAL >>> " + writeTables);
+        log.debug("WRITE TABLES FINAL >>> {}", writeTables);
 
         // =============================
         // REFERENCED TABLES
@@ -160,7 +166,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         String summary = "The " + type + " " + name + " interacts with " + referencedTables.size()
                 + " tables and has a risk level of " + riskLevel + ".";
 
-        System.out.println("REFERENCED TABLES BEFORE OBJECT >>> " + referencedTables);
+        log.debug("REFERENCED TABLES BEFORE OBJECT >>> {}", referencedTables);
         return new LegacyObject(
 
                 UUID.randomUUID().toString(),
@@ -193,19 +199,18 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     // =============================
     public List<String> extractSemanticRelations(String sql) {
 
-        System.out.println("NEW SEMANTIC RELATIONS RUNNING");
+        log.debug("NEW SEMANTIC RELATIONS RUNNING");
 
         Set<String> relations = new LinkedHashSet<>();
 
         sql = sql.replace("\n", " ").replace("\r", " ").toUpperCase();
 
-        Pattern updatePattern =
-                Pattern.compile("\\\\bUPDATE\\\\s+([A-Z][A-Z0-9_]*(?:\\\\.[A-Z][A-Z0-9_]*)?)",
-                        Pattern.CASE_INSENSITIVE);
+        Pattern updatePattern = Pattern.compile(
+                "\\bUPDATE\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)", Pattern.CASE_INSENSITIVE);
 
-        Pattern insertPattern = Pattern.compile(
-                "\\\\bINSERT\\\\s+INTO\\\\s+([A-Z][A-Z0-9_]*(?:\\\\.[A-Z][A-Z0-9_]*)?)",
-                Pattern.CASE_INSENSITIVE);
+        Pattern insertPattern =
+                Pattern.compile("\\bINSERT\\s+INTO\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
+                        Pattern.CASE_INSENSITIVE);
 
         String mainTable = detectMainTable(sql);
 
@@ -213,7 +218,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         for (String stmt : statements) {
 
-            System.out.println("STATEMENT >>> " + stmt);
+            log.debug("STATEMENT >>> {}", stmt);
 
             // =============================
             // UPDATE RELATIONS
@@ -245,11 +250,11 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                     String fromClause = extractTopLevelFromClause(stmt);
 
-                    System.out.println("FROM FOR INSERT >>> " + fromClause);
+                    log.debug("FROM FOR INSERT >>> {}", fromClause);
 
                     Set<String> sources = extractTables(fromClause);
 
-                    System.out.println("INSERT SOURCES >>> " + sources);
+                    log.debug("INSERT SOURCES >>> {}", sources);
 
                     for (String src : sources) {
 
@@ -267,7 +272,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
             String fromClause = extractTopLevelFromClause(stmt);
 
-            System.out.println("FROM FOR REL >>> " + fromClause);
+            log.debug("FROM FOR REL >>> {}", fromClause);
 
             if (fromClause == null || fromClause.isBlank()) {
                 continue;
@@ -275,7 +280,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
             Set<String> sources = extractTables(fromClause);
 
-            System.out.println("SOURCES >>> " + sources);
+            log.debug("SOURCES >>> {}", sources);
 
             List<String> sourceList = new ArrayList<>(sources);
 
@@ -295,7 +300,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             }
         }
 
-        System.out.println("RELATIONS >>> " + relations);
+     log.debug("RELATIONS >>> {}", relations);
 
         return new ArrayList<>(relations);
     }
@@ -350,7 +355,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         for (String part : parts) {
 
-            System.out.println("PART >>> " + part);
+            log.debug("PART >>> {}", part);
 
             String trimmed = part.trim();
 
@@ -362,7 +367,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                 List<String> nestedTables = extractReadTables(trimmed);
 
-                System.out.println("NESTED TABLES >>> " + nestedTables);
+                log.debug("NESTED TABLES >>> {}", nestedTables);
 
                 tables.addAll(nestedTables);
 
@@ -389,7 +394,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                 tables.add(table);
 
-                System.out.println("EXTRACT TABLE >>> " + table);
+                log.debug("EXTRACT TABLE >>> {}", table);
             }
         }
 
@@ -407,7 +412,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                 tables.add(table);
 
-                System.out.println("JOIN EXTRACT TABLE >>> " + table);
+                log.debug("JOIN EXTRACT TABLE >>> {}", table);
             }
         }
 
@@ -457,7 +462,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
             references.add(new TableReference(table, alias));
 
-            System.out.println("TABLE REF >>> " + table + " alias=" + alias);
+            log.debug("TABLE REF >>> {} alias={}", table, alias);
         }
 
 
@@ -475,7 +480,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
             references.add(new TableReference(table, alias));
 
-            System.out.println("JOIN TABLE REF >>> " + table + " alias=" + alias);
+            log.debug("JOIN TABLE REF >>> {} alias={}", table, alias);
         }
 
 
@@ -483,81 +488,91 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     }
 
 
-public List<JoinCondition> extractJoinConditions(String sql) {
+    public List<JoinCondition> extractJoinConditions(String sql) {
 
-    List<JoinCondition> conditions = new ArrayList<>();
+        List<JoinCondition> conditions = new ArrayList<>();
 
-    Pattern joinPattern =
-            Pattern.compile(
-                    "([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*=\\s*([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)",
-                    Pattern.CASE_INSENSITIVE);
+        Pattern joinPattern = Pattern.compile(
+                "([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*=\\s*([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)",
+                Pattern.CASE_INSENSITIVE);
 
-    Matcher matcher = joinPattern.matcher(sql.toUpperCase());
+        Matcher matcher = joinPattern.matcher(sql.toUpperCase());
 
-    while (matcher.find()) {
+        while (matcher.find()) {
 
-        String leftAlias = matcher.group(1);
+            String leftAlias = matcher.group(1);
 
-        String leftColumn = matcher.group(2);
+            String leftColumn = matcher.group(2);
 
-        String rightAlias = matcher.group(3);
+            String rightAlias = matcher.group(3);
 
-        String rightColumn = matcher.group(4);
+            String rightColumn = matcher.group(4);
 
-        JoinCondition condition =
-                new JoinCondition(
-                        leftAlias,
-                        leftColumn,
-                        rightAlias,
-                        rightColumn);
+            JoinCondition condition =
+                    new JoinCondition(leftAlias, leftColumn, rightAlias, rightColumn);
 
-        conditions.add(condition);
+            conditions.add(condition);
 
-        System.out.println(
-                "JOIN CONDITION >>> " + condition);
+            log.debug("JOIN CONDITION >>> {}", condition);
+        }
+
+        return conditions;
     }
 
-    return conditions;
-}
+    public void resolveJoinConditions(List<TableReference> references,
+            List<JoinCondition> conditions) {
 
-public void resolveJoinConditions(
-        List<TableReference> references,
-        List<JoinCondition> conditions) {
+        Map<String, String> aliasMap = new HashMap<>();
 
-    Map<String, String> aliasMap = new HashMap<>();
+        for (TableReference ref : references) {
 
-    for (TableReference ref : references) {
+            if (ref.getAlias() != null) {
 
-        if (ref.getAlias() != null) {
+                aliasMap.put(ref.getAlias().toUpperCase(), ref.getFullName());
+            }
+        }
 
-            aliasMap.put(
-                    ref.getAlias().toUpperCase(),
-                    ref.getFullName());
+        log.debug("ALIAS MAP >>> {}", aliasMap);
+
+        for (JoinCondition condition : conditions) {
+
+            String leftTable = aliasMap.get(condition.getLeftAlias());
+
+            String rightTable = aliasMap.get(condition.getRightAlias());
+
+            log.debug("RESOLVED JOIN >>> {}.{} -> {}.{}", leftTable, condition.getLeftColumn(),
+                    rightTable, condition.getRightColumn());
         }
     }
 
-    System.out.println("ALIAS MAP >>> " + aliasMap);
+    public SqlSemanticModel buildSemanticModel(String sql) {
 
-    for (JoinCondition condition : conditions) {
+        SqlSemanticModel model = new SqlSemanticModel();
 
-        String leftTable =
-                aliasMap.get(condition.getLeftAlias());
+        List<String> readTables = extractReadTables(sql);
 
-        String rightTable =
-                aliasMap.get(condition.getRightAlias());
+        List<String> writeTables = extractWriteTables(sql);
 
-        System.out.println(
-                leftTable
-                        + "."
-                        + condition.getLeftColumn()
-                        + " -> "
-                        + rightTable
-                        + "."
-                        + condition.getRightColumn());
+        List<String> semanticRelations = extractSemanticRelations(sql);
+
+        String fromClause = extractTopLevelFromClause(sql.toUpperCase());
+
+        List<TableReference> references = extractTableReferences(fromClause);
+
+        List<JoinCondition> joins = extractJoinConditions(sql);
+
+        model.setReadTables(readTables);
+
+        model.setWriteTables(writeTables);
+
+        model.setSemanticRelations(semanticRelations);
+
+        model.setTableReferences(references);
+
+        model.setJoinConditions(joins);
+
+        return model;
     }
-}
-
-
 
     private void extractFromTables(String sql, Set<String> tables) {
 
@@ -782,9 +797,11 @@ public void resolveJoinConditions(
 
                             packageName));
 
-            System.out.println(
-
-                    "CALL DETECTED >>> " + objectName + " -> " + packageName + "." + procedureName);
+          log.debug(
+        "CALL DETECTED >>> {} -> {}.{}",
+        objectName,
+        packageName,
+        procedureName);
         }
 
         // =============================
@@ -793,7 +810,7 @@ public void resolveJoinConditions(
 
         List<String> readTables = extractReadTables(normalized);
 
-        System.out.println("READ TABLES FINAL >>> " + readTables);
+        log.debug("READ TABLES FINAL >>> {}", readTables);
 
         for (String table : readTables) {
 
@@ -807,9 +824,7 @@ public void resolveJoinConditions(
 
                             table));
 
-            System.out.println(
-
-                    "READ DETECTED >>> " + objectName + " -> " + table);
+            log.debug("READ DETECTED >>> {} -> {}", objectName, table);
         }
 
         // =============================
@@ -830,7 +845,7 @@ public void resolveJoinConditions(
 
                             table));
 
-            System.out.println("WRITE DETECTED >>> " + objectName + " -> " + table);
+            log.debug("WRITE DETECTED >>> {} -> {}", objectName, table);
         }
 
         return relations.stream().distinct().toList();
@@ -854,13 +869,13 @@ public void resolveJoinConditions(
 
             String fromClause = extractTopLevelFromClause(remaining);
 
-            System.out.println("FROM CLAUSE >>> " + fromClause);
+        log.debug("FROM CLAUSE >>> {}", fromClause);
 
             List<String> parts = splitTopLevelComma(fromClause);
 
             for (String part : parts) {
 
-                System.out.println("PART >>> " + part);
+                log.debug("PART >>> {}", part);
 
                 String trimmed = part.trim();
 
@@ -886,8 +901,7 @@ public void resolveJoinConditions(
                 if (isValidTable(table)) {
 
                     tables.add(table);
-
-                    System.out.println("READ TABLE >>> " + table);
+                    log.debug("READ TABLE >>> {}", table);
                 }
             }
         }
@@ -904,7 +918,7 @@ public void resolveJoinConditions(
 
                 tables.add(table);
 
-                System.out.println("JOIN TABLE >>> " + table);
+                log.debug("JOIN TABLE >>> {}", table);
             }
         }
 

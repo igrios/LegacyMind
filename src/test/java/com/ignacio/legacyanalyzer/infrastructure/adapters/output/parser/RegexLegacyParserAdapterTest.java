@@ -1,12 +1,14 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
+import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
 
 class RegexLegacyParserAdapterTest {
@@ -233,6 +235,28 @@ void shouldResolveJoinAliases() {
             parser.extractJoinConditions(sql);
 
     parser.resolveJoinConditions(refs, conditions);
+}
+
+@Test
+void shouldBuildSemanticModel() {
+
+    String sql = """
+        SELECT *
+        FROM CRM.CLIENTES C
+        INNER JOIN ERP.PEDIDOS P
+            ON C.ID = P.CLIENTE_ID;
+        """;
+
+    SqlSemanticModel model =
+            parser.buildSemanticModel(sql);
+
+    System.out.println(model);
+
+    assertFalse(model.getReadTables().isEmpty());
+
+    assertFalse(model.getTableReferences().isEmpty());
+
+    assertFalse(model.getJoinConditions().isEmpty());
 }
 
 }
