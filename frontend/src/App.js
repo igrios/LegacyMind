@@ -114,7 +114,7 @@ function App() {
 
     try {
       // ✅ ARREGLADO: URL limpia y formateada sin código duplicado
-      const response = await fetch("https://legacymind-api.onrender.com/admin/database", {
+      const response = await fetch("https://legacymind-api.onrender.com/api/legacy/database", {
         method: "DELETE"
       });
 
