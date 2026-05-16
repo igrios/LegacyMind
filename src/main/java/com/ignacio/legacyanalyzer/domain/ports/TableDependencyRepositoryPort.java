@@ -1,7 +1,7 @@
 package com.ignacio.legacyanalyzer.domain.ports;
 
-import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 import java.util.List;
+import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 
 public interface TableDependencyRepositoryPort {
 
@@ -13,4 +13,5 @@ public interface TableDependencyRepositoryPort {
 
     List<String> findTargetsBySource(String sourceTable);
     void saveAllDependencies(List<TableDependency> dependencies);
+    void deleteAll();
 }

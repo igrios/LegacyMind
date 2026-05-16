@@ -66,6 +66,10 @@ public void saveAllDependencies(List<TableDependency> dependencies) {
 
     repository.saveAll(entities);
 }
+@Override
+public void deleteAll() {
 
+    repository.deleteAll();
+}
 
 }

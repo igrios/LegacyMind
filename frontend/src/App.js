@@ -225,6 +225,56 @@ function App() {
   };
 
   // =====================================================
+// CLEAR DATABASE
+// =====================================================
+
+const handleClearDatabase = async () => {
+
+  const confirmed = window.confirm(
+    "¿Seguro que querés borrar todos los análisis?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+
+    const response = await fetch(
+      "http://localhost:8080/admin/database",
+      {
+        method: "DELETE"
+      }
+    );
+
+    if (!response.ok) {
+
+      throw new Error(
+        "Error cleaning database"
+      );
+    }
+
+    alert(
+      "Base limpiada correctamente"
+    );
+
+    setNodes([]);
+
+    setEdges([]);
+
+    setSelectedNode(null);
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert(
+      "Error al borrar análisis"
+    );
+  }
+};
+
+  // =====================================================
   // NODE CLICK
   // =====================================================
 
@@ -340,14 +390,21 @@ function App() {
 
         </button>
 
-        {/* UPLOAD */}
+        {/* CLEAR DATABASE */}
+
+<button
+  onClick={handleClearDatabase}
+  style={buttonStyle("#dc2626")}
+>
+  Borrar análisis
+</button>
 
         <button
-          onClick={() => setScreen("upload")}
-          style={buttonStyle("#7c3aed")}
-        >
-          Upload Packages
-        </button>
+  onClick={() => setScreen("upload")}
+  style={buttonStyle("#7c3aed")}
+>
+  Upload Packages
+</button>
 
         {/* STATS */}
 

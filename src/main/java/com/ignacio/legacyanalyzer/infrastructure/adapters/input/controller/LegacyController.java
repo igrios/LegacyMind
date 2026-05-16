@@ -1,11 +1,14 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.input.controller;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
+import com.ignacio.legacyanalyzer.application.usecase.DeleteDatabaseUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactUseCase;
@@ -27,8 +31,6 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.Kno
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
-import java.util.HashSet;
-import java.util.HashMap;
 
 
 @CrossOrigin(origins = "*")
@@ -45,6 +47,7 @@ public class LegacyController {
         private final ImpactAnalysisService impactService;
         private final GetImpactGraphUseCase getImpactGraphUseCase;
         private final KnowledgeRelationRepository knowledgeRelationRepository;
+        private final DeleteDatabaseUseCase deleteDatabaseUseCase;
 
         public LegacyController(LegacyObjectRepository repository,
                         RegexLegacyParserAdapter parserAdapter, GetImpactUseCase getImpactUseCase,
@@ -53,7 +56,8 @@ public class LegacyController {
                         GetImpactByLevelsUseCase getImpactByLevelsUseCase,
                         ImpactAnalysisService impactService,
                         GetImpactGraphUseCase getImpactGraphUseCase,
-                        KnowledgeRelationRepository knowledgeRelationRepository) {
+                        KnowledgeRelationRepository knowledgeRelationRepository,
+                        DeleteDatabaseUseCase deleteDatabaseUseCase) {
 
                 this.repository = repository;
                 this.parserAdapter = parserAdapter;
@@ -64,6 +68,7 @@ public class LegacyController {
                 this.impactService = impactService;
                 this.getImpactGraphUseCase = getImpactGraphUseCase;
                 this.knowledgeRelationRepository = knowledgeRelationRepository;
+                this.deleteDatabaseUseCase = deleteDatabaseUseCase;     
         }
 
         @PostMapping("/analyze")
@@ -254,6 +259,16 @@ public Map<String, Object> getKnowledgeGraph() {
 
     return result;
 }
+
+
+  @DeleteMapping("/database")
+    public ResponseEntity<String> clearDatabase() {
+
+        deleteDatabaseUseCase.execute();
+
+        return ResponseEntity.ok(
+                "Database cleaned successfully");
+    }
 
 
 
