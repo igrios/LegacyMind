@@ -2,18 +2,44 @@ package com.ignacio.legacyanalyzer.application.usecase;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
-import lombok.RequiredArgsConstructor;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.TableDependencyJpaRepository;
 
 @Service
-@RequiredArgsConstructor
 public class DeleteDatabaseUseCase {
 
-    private final TableDependencyRepositoryPort repository;
+    private final TableDependencyJpaRepository
+            tableDependencyRepository;
+
+    private final LegacyObjectRepository
+            legacyObjectRepository;
+
+    private final KnowledgeRelationRepository
+            knowledgeRelationRepository;
+
+    public DeleteDatabaseUseCase(
+            TableDependencyJpaRepository tableDependencyRepository,
+            LegacyObjectRepository legacyObjectRepository,
+            KnowledgeRelationRepository knowledgeRelationRepository) {
+
+        this.tableDependencyRepository =
+                tableDependencyRepository;
+
+        this.legacyObjectRepository =
+                legacyObjectRepository;
+
+        this.knowledgeRelationRepository =
+                knowledgeRelationRepository;
+    }
 
     @Transactional
     public void execute() {
 
-        repository.deleteAll();
+        knowledgeRelationRepository.deleteAll();
+
+        tableDependencyRepository.deleteAll();
+
+        legacyObjectRepository.deleteAll();
     }
 }
