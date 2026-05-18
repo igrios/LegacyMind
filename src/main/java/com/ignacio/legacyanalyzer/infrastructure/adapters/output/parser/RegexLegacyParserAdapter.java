@@ -20,6 +20,7 @@ import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
+import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
 import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
 import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
     private final LegacyRiskAnalyzer riskAnalyzer;
     private final SqlSemanticExtractor semanticExtractor;
+    private final GraphRelationExtractor graphRelationExtractor;
+
 
     private static final Pattern NAME_PATTERN = Pattern.compile(
             "CREATE\\s+OR\\s+REPLACE\\s+(PACKAGE|PROCEDURE|FUNCTION)\\s+(BODY\\s+)?(\\w+)",
@@ -150,9 +153,11 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         // KNOWLEDGE RELATIONS
         // =============================
-
-        List<KnowledgeRelation> knowledgeRelations = extractKnowledgeRelations(sourceCode, name);
-
+List<KnowledgeRelation> knowledgeRelations =
+        graphRelationExtractor
+                .extractKnowledgeRelations(
+                        sourceCode,
+                        name);
         // =============================
         // REFERENCED TABLES
         // =============================
@@ -707,66 +712,6 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
 
 
-    private void extractFromTables(String sql, Set<String> tables) {
-
-        Matcher matcher =
-                Pattern.compile("\\bFROM\\s+([^;]+)", Pattern.CASE_INSENSITIVE).matcher(sql);
-
-        while (matcher.find()) {
-
-            String clause = matcher.group(1);
-
-            clause = clause.split("WHERE")[0];
-            clause = clause.split("GROUP BY")[0];
-            clause = clause.split("ORDER BY")[0];
-
-            for (String part : clause.split(",")) {
-
-                String table = part.trim().split(" ")[0];
-
-                if (table.contains(".")) {
-                    table = table.split("\\.")[1];
-                }
-
-                addIfValid(table, tables);
-            }
-        }
-    }
-
-    private void extractUpdateTables(String sql, Set<String> tables) {
-
-        Matcher matcher =
-                Pattern.compile("\\bUPDATE\\s+(\\w+)", Pattern.CASE_INSENSITIVE).matcher(sql);
-
-        while (matcher.find()) {
-            addIfValid(matcher.group(1), tables);
-        }
-    }
-
-    private void extractInsertTables(String sql, Set<String> tables) {
-
-        Matcher matcher = Pattern.compile("\\bINSERT\\s+INTO\\s+(\\w+)", Pattern.CASE_INSENSITIVE)
-                .matcher(sql);
-
-        while (matcher.find()) {
-            addIfValid(matcher.group(1), tables);
-        }
-    }
-
-    private void addIfValid(String table, Set<String> tables) {
-
-        if (table == null) {
-            return;
-        }
-
-        table = clean(table);
-
-        if (isValidTable(table)) {
-            tables.add(table);
-        }
-    }
-
-
     // FIN MOD
 
     // =============================
@@ -788,200 +733,6 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
 
 
-    private List<KnowledgeRelation> extractKnowledgeRelations(String sourceCode,
-            String objectName) {
-
-        String normalized = preProcess(sourceCode).toUpperCase();
-
-        List<KnowledgeRelation> relations = new ArrayList<>();
-        // =============================
-        // CALLS
-        // =============================
-
-        Pattern callPattern = Pattern.compile("(\\w+)\\.(\\w+)\\s*\\(", Pattern.CASE_INSENSITIVE);
-
-        Matcher matcher = callPattern.matcher(sourceCode);
-
-        while (matcher.find()) {
-
-            String packageName = matcher.group(1).toUpperCase();
-
-            String procedureName = matcher.group(2).toUpperCase();
-
-            // evitar self calls
-            if (packageName.equals(objectName)) {
-                continue;
-            }
-
-            relations.add(
-
-                    new KnowledgeRelation(
-
-                            objectName,
-
-                            "CALLS",
-
-                            packageName));
-
-            log.debug("CALL DETECTED >>> {} -> {}.{}", objectName, packageName, procedureName);
-        }
-
-        // =============================
-        // READS
-        // =============================
-
-        List<String> readTables = semanticExtractor.extractReadTables(normalized);
-
-        log.debug("READ TABLES FINAL >>> {}", readTables);
-
-        for (String table : readTables) {
-
-            relations.add(
-
-                    new KnowledgeRelation(
-
-                            objectName,
-
-                            "READS",
-
-                            table));
-
-            log.debug("READ DETECTED >>> {} -> {}", objectName, table);
-        }
-
-        // =============================
-        // WRITES
-        // =============================
-
-        List<String> writeTables = semanticExtractor.extractWriteTables(normalized);
-
-        for (String table : writeTables) {
-
-            relations.add(
-
-                    new KnowledgeRelation(
-
-                            objectName,
-
-                            "WRITES",
-
-                            table));
-
-            log.debug("WRITE DETECTED >>> {} -> {}", objectName, table);
-        }
-
-        return relations.stream().distinct().toList();
-    }
-
-    private List<String> extractReadTables(String sourceCode) {
-
-        Set<String> tables = new HashSet<>();
-
-        String normalized = sourceCode.toUpperCase();
-
-        Pattern fromPattern = Pattern.compile("\\bFROM\\b", Pattern.CASE_INSENSITIVE);
-
-        Matcher matcher = fromPattern.matcher(normalized);
-
-        while (matcher.find()) {
-
-            int fromIndex = matcher.start();
-
-            String remaining = normalized.substring(fromIndex);
-
-            String fromClause = extractTopLevelFromClause(remaining);
-
-            log.debug("FROM CLAUSE >>> {}", fromClause);
-
-            List<String> parts = splitTopLevelComma(fromClause);
-
-            for (String part : parts) {
-
-                log.debug("PART >>> {}", part);
-
-                String trimmed = part.trim();
-
-                // =============================
-                // SUBQUERY
-                // =============================
-
-                if (trimmed.startsWith("(")) {
-
-                    tables.addAll(semanticExtractor.extractReadTables(trimmed));
-
-                    continue;
-                }
-
-                // =============================
-                // NORMAL TABLE
-                // =============================
-
-                String table = trimmed.split("\\s+")[0];
-
-                table = clean(table);
-
-                if (isValidTable(table)) {
-
-                    tables.add(table);
-                    log.debug("READ TABLE >>> {}", table);
-                }
-            }
-        }
-        Matcher joinMatcher = JOIN_ALIAS_PATTERN.matcher(normalized);
-
-        while (joinMatcher.find()) {
-
-            String table = clean(joinMatcher.group(1));
-
-            if (isValidTable(table)) {
-
-                tables.add(table);
-
-                log.debug("JOIN TABLE >>> {}", table);
-            }
-        }
-
-
-
-        return tables.stream().distinct().toList();
-    }
-
-    private List<String> extractWriteTables(String sourceCode) {
-
-        List<String> result = new ArrayList<>();
-
-        // UPDATE
-
-        Matcher updateMatcher = UPDATE_PATTERN.matcher(sourceCode);
-
-        while (updateMatcher.find()) {
-
-            String table = updateMatcher.group(1).toUpperCase();
-
-            if (isValidTable(table)) {
-
-                result.add(table);
-            }
-        }
-
-
-
-        // INSERT INTO
-
-        Matcher insertMatcher = INSERT_PATTERN.matcher(sourceCode);
-
-        while (insertMatcher.find()) {
-
-            String table = insertMatcher.group(1).toUpperCase();
-
-            if (isValidTable(table)) {
-
-                result.add(table);
-            }
-        }
-
-        return result.stream().distinct().toList();
-    }
 
     private boolean isValidTable(String table) {
 

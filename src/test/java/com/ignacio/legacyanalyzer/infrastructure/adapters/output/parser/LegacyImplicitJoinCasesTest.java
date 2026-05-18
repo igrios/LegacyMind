@@ -5,15 +5,24 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
+import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
 import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
 import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
 
 public class LegacyImplicitJoinCasesTest {
 
-  private final RegexLegacyParserAdapter parser = new RegexLegacyParserAdapter(
-        new LegacyRiskAnalyzer(),
-        new SqlSemanticExtractor());
+ private final SqlSemanticExtractor semanticExtractor =
+        new SqlSemanticExtractor();
 
+private final GraphRelationExtractor graphRelationExtractor =
+        new GraphRelationExtractor(
+                semanticExtractor);
+
+private final RegexLegacyParserAdapter parser =
+        new RegexLegacyParserAdapter(
+                new LegacyRiskAnalyzer(),
+                semanticExtractor,
+                graphRelationExtractor);
   @Test
   void  shouldDetectImplicitJoinTables() { 
     
