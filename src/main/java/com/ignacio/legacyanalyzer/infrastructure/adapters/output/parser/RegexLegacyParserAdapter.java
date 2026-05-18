@@ -985,7 +985,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
     private boolean isValidTable(String table) {
 
-        return table != null && !table.isBlank() && table.matches("[A-Z][A-Z0-9_.$#@]*")
+        return table != null && !table.isBlank() && table.length() > 1
+                && table.matches("[A-Z][A-Z0-9_.$#@]{1,}")
                 && !Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
                         "DELETE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR",
                         "GROUP", "ORDER", "BY", "BEGIN", "END", "NULL").contains(table);
