@@ -35,10 +35,9 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     private final SqlSemanticExtractor semanticExtractor;
     private final GraphRelationExtractor graphRelationExtractor;
 
-
-    private static final Pattern NAME_PATTERN = Pattern.compile(
-            "CREATE\\s+OR\\s+REPLACE\\s+(PACKAGE|PROCEDURE|FUNCTION)\\s+(BODY\\s+)?(\\w+)",
-            Pattern.CASE_INSENSITIVE);
+    private static final Pattern NAME_PATTERN = Pattern.compile("CREATE\\s+OR\\s+REPLACE\\s+"
+            + "(MATERIALIZED\\s+VIEW|PACKAGE|PROCEDURE|FUNCTION|TRIGGER|VIEW)" + "\\s+(BODY\\s+)?"
+            + "([A-Z][A-Z0-9_.$#@]*)", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern PROCEDURE_PATTERN =
             Pattern.compile("\\bPROCEDURE\\s+(\\w+)\\s*(\\(|IS|AS)", Pattern.CASE_INSENSITIVE);
@@ -65,7 +64,11 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     private static final Pattern JOIN_ALIAS_PATTERN = Pattern.compile(
             "\\bJOIN\\s+([A-Z][A-Z0-9_.$#@]*(?:\\.[A-Z][A-Z0-9_.$#@]*)?)\\s+([A-Z][A-Z0-9_]*)",
             Pattern.CASE_INSENSITIVE);
-
+            
+private static final Pattern TRIGGER_ON_PATTERN =
+        Pattern.compile(
+                "\\bON\\s+([A-Z][A-Z0-9_.$#@]*)",
+                Pattern.CASE_INSENSITIVE);
 
 
     @Override
@@ -89,7 +92,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         if (nameMatcher.find()) {
 
-            type = nameMatcher.group(1).toUpperCase();
+            type = nameMatcher.group(1).toUpperCase().replaceAll("\\s+", "_");
 
             name = nameMatcher.group(3).toUpperCase();
         }
@@ -153,11 +156,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         // KNOWLEDGE RELATIONS
         // =============================
-List<KnowledgeRelation> knowledgeRelations =
-        graphRelationExtractor
-                .extractKnowledgeRelations(
-                        sourceCode,
-                        name);
+        List<KnowledgeRelation> knowledgeRelations =
+                graphRelationExtractor.extractKnowledgeRelations(sourceCode, name);
         // =============================
         // REFERENCED TABLES
         // =============================
@@ -270,12 +270,16 @@ List<KnowledgeRelation> knowledgeRelations =
 
             String fromClause = extractTopLevelFromClause(stmt);
 
+            List<TableReference> references = extractTableReferences(fromClause);
+
             log.debug("FROM FOR REL >>> {}", fromClause);
 
             if (fromClause == null || fromClause.isBlank()) {
 
                 continue;
             }
+
+            Map<String, String> aliasMap = semanticExtractor.buildAliasMap(references);
 
             Set<String> sources = extractTables(fromClause);
 
@@ -290,6 +294,10 @@ List<KnowledgeRelation> knowledgeRelations =
                     String left = sourceList.get(i);
 
                     String right = sourceList.get(j);
+
+                    left = aliasMap.getOrDefault(left, left);
+
+                    right = aliasMap.getOrDefault(right, right);
 
                     if (isValidTable(left) && isValidTable(right) && !left.equals(right)) {
 
@@ -730,7 +738,6 @@ List<KnowledgeRelation> knowledgeRelations =
 
         return source;
     }
-
 
 
 

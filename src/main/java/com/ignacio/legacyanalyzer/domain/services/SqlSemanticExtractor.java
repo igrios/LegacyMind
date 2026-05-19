@@ -1,12 +1,15 @@
 package com.ignacio.legacyanalyzer.domain.services;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
+import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -228,6 +231,25 @@ public class SqlSemanticExtractor {
 
     return result;
   }
+
+  public Map<String, String> buildAliasMap(
+    List<TableReference> references) {
+
+  Map<String, String> aliases =
+      new HashMap<>();
+
+  for (TableReference ref : references) {
+
+    if (ref.getAlias() != null) {
+
+      aliases.put(
+          ref.getAlias().toUpperCase(),
+          ref.getFullName());
+    }
+  }
+
+  return aliases;
+}
 
   private String clean(String table) {
 

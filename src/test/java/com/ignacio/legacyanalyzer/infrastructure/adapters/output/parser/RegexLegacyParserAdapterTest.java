@@ -340,5 +340,63 @@ void shouldDetectSelectStarRisk() {
                              .equals("SELECT_STAR")));
 }
 
+@Test
+void shouldDetectMaterializedView() {
+
+    String sql = """
+        CREATE OR REPLACE MATERIALIZED VIEW MV_CLIENTES
+        AS
+        SELECT *
+        FROM CLIENTES;
+        """;
+
+    LegacyObject result =
+            parser.parse(sql);
+
+    assertEquals(
+            "MV_CLIENTES",
+            result.getName());
+
+    assertEquals(
+            "MATERIALIZED_VIEW",
+            result.getType());
+}
+
+@Test
+void shouldDetectTriggerRelations() {
+
+    String sql = """
+        CREATE OR REPLACE TRIGGER TRG_AUDITORIA
+        AFTER INSERT ON PAGOS
+        FOR EACH ROW
+        BEGIN
+            INSERT INTO AUDITORIA_LOG
+            VALUES (:NEW.ID);
+        END;
+        """;
+
+    LegacyObject result =
+            parser.parse(sql);
+
+    assertEquals(
+            "TRIGGER",
+            result.getType());
+
+ boolean found =
+        result.getKnowledgeRelations()
+                .stream()
+                .anyMatch(r ->
+
+                        r.relation()
+                                .equals("TRIGGER_ON")
+
+                                &&
+
+                                r.target()
+                                        .equals("PAGOS"));
+
+    assertTrue(found);
+}
+
 
 }
