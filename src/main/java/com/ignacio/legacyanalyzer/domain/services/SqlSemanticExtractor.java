@@ -252,34 +252,58 @@ public class SqlSemanticExtractor {
     return table.replaceAll("[^A-Z0-9_.$#@]", "");
   }
 
-  private boolean isValidTable(String table) {
+ private boolean isValidTable(String table) {
 
     if (table == null || table.isBlank()) {
 
-      return false;
+        return false;
     }
 
     table = table.toUpperCase();
 
-    if (Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
-        "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY",
-        "BEGIN", "END", "NULL").contains(table)) {
+    if (Set.of(
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "INSERT",
+            "INTO",
+            "VALUES",
+            "UPDATE",
+            "SET",
+            "DELETE",
+            "JOIN",
+            "LEFT",
+            "RIGHT",
+            "INNER",
+            "OUTER",
+            "ON",
+            "AND",
+            "OR",
+            "GROUP",
+            "ORDER",
+            "BY",
+            "BEGIN",
+            "END",
+            "NULL")
+            .contains(table)) {
 
-      return false;
+        return false;
     }
 
     // CLIENTES
-    if (table.matches("[A-Z][A-Z0-9_#$@]*")) {
+    if (table.matches(
+            "[A-Z][A-Z0-9_#$@]*")) {
 
-      return true;
+        return true;
     }
 
     // CRM.CLIENTES
-    if (table.matches("[A-Z][A-Z0-9_#$@]*\\.[A-Z][A-Z0-9_#$@]*")) {
+    if (table.matches(
+            "[A-Z][A-Z0-9_#$@]*\\.[A-Z][A-Z0-9_#$@]*")) {
 
-      return true;
+        return true;
     }
 
     return false;
-  }
+}
 }

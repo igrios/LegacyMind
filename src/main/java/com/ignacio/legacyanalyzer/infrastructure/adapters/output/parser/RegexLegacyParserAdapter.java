@@ -64,11 +64,9 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     private static final Pattern JOIN_ALIAS_PATTERN = Pattern.compile(
             "\\bJOIN\\s+([A-Z][A-Z0-9_.$#@]*(?:\\.[A-Z][A-Z0-9_.$#@]*)?)\\s+([A-Z][A-Z0-9_]*)",
             Pattern.CASE_INSENSITIVE);
-            
-private static final Pattern TRIGGER_ON_PATTERN =
-        Pattern.compile(
-                "\\bON\\s+([A-Z][A-Z0-9_.$#@]*)",
-                Pattern.CASE_INSENSITIVE);
+
+    private static final Pattern TRIGGER_ON_PATTERN =
+            Pattern.compile("\\bON\\s+([A-Z][A-Z0-9_.$#@]*)", Pattern.CASE_INSENSITIVE);
 
 
     @Override
@@ -496,7 +494,7 @@ private static final Pattern TRIGGER_ON_PATTERN =
             table = clean(table);
 
 
-            if (table != null && !table.isBlank()) {
+            if (isValidTable(table)) {
 
                 tables.add(table);
 
@@ -743,11 +741,33 @@ private static final Pattern TRIGGER_ON_PATTERN =
 
     private boolean isValidTable(String table) {
 
-        return table != null && !table.isBlank() && table.length() > 1
-                && table.matches("[A-Z][A-Z0-9_.$#@]{1,}")
-                && !Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
-                        "DELETE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR",
-                        "GROUP", "ORDER", "BY", "BEGIN", "END", "NULL").contains(table);
+        if (table == null || table.isBlank()) {
+
+            return false;
+        }
+
+        table = table.toUpperCase();
+
+        if (Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
+                "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER",
+                "BY", "BEGIN", "END", "NULL").contains(table)) {
+
+            return false;
+        }
+
+        // CLIENTES
+        if (table.matches("[A-Z][A-Z0-9_#$@]*")) {
+
+            return true;
+        }
+
+        // CRM.CLIENTES
+        if (table.matches("[A-Z][A-Z0-9_#$@]*\\.[A-Z][A-Z0-9_#$@]*")) {
+
+            return true;
+        }
+
+        return false;
     }
 
     private String clean(String table) {
