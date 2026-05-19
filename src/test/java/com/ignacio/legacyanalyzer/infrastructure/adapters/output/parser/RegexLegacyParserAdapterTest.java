@@ -399,4 +399,32 @@ void shouldDetectTriggerRelations() {
 }
 
 
+@Test
+void shouldIgnoreAliasColumnsAsTables() {
+
+    String sql = """
+        SELECT
+            C.ID_CLIENTE,
+            P.CLIENTE_ID
+        FROM CRM.CLIENTES C
+        INNER JOIN ERP.PEDIDOS P
+            ON C.ID_CLIENTE = P.CLIENTE_ID
+        """;
+
+    List<String> tables =
+            semanticExtractor.extractReadTables(sql);
+
+    assertTrue(
+            tables.contains("CRM.CLIENTES"));
+
+    assertTrue(
+            tables.contains("ERP.PEDIDOS"));
+
+    assertFalse(
+            tables.contains("C.ID_CLIENTE"));
+
+    assertFalse(
+            tables.contains("P.CLIENTE_ID"));
+}
+
 }

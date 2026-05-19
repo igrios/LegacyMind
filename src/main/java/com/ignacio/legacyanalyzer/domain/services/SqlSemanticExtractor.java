@@ -232,24 +232,20 @@ public class SqlSemanticExtractor {
     return result;
   }
 
-  public Map<String, String> buildAliasMap(
-    List<TableReference> references) {
+  public Map<String, String> buildAliasMap(List<TableReference> references) {
 
-  Map<String, String> aliases =
-      new HashMap<>();
+    Map<String, String> aliases = new HashMap<>();
 
-  for (TableReference ref : references) {
+    for (TableReference ref : references) {
 
-    if (ref.getAlias() != null) {
+      if (ref.getAlias() != null) {
 
-      aliases.put(
-          ref.getAlias().toUpperCase(),
-          ref.getFullName());
+        aliases.put(ref.getAlias().toUpperCase(), ref.getFullName());
+      }
     }
-  }
 
-  return aliases;
-}
+    return aliases;
+  }
 
   private String clean(String table) {
 
@@ -258,9 +254,32 @@ public class SqlSemanticExtractor {
 
   private boolean isValidTable(String table) {
 
-    return table != null && !table.isBlank() && table.matches("[A-Z][A-Z0-9_.$#@]*")
-        && !Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
-            "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY",
-            "BEGIN", "END", "NULL").contains(table);
+    if (table == null || table.isBlank()) {
+
+      return false;
+    }
+
+    table = table.toUpperCase();
+
+    if (Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
+        "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY",
+        "BEGIN", "END", "NULL").contains(table)) {
+
+      return false;
+    }
+
+    // CLIENTES
+    if (table.matches("[A-Z][A-Z0-9_#$@]*")) {
+
+      return true;
+    }
+
+    // CRM.CLIENTES
+    if (table.matches("[A-Z][A-Z0-9_#$@]*\\.[A-Z][A-Z0-9_#$@]*")) {
+
+      return true;
+    }
+
+    return false;
   }
 }
