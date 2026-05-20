@@ -8,8 +8,6 @@ function App() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
-  // NUEVO STATE
-  const [backendReady, setBackendReady] = useState(false);
 
   // =====================================================
   // LOAD GRAPH
