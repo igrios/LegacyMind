@@ -5,7 +5,7 @@ export default function OraclePackageUploader({
 }) {
 
   // =====================================================
-  // SOURCE CODE
+  // STATES
   // =====================================================
 
   const [sourceCode, setSourceCode] = useState(`CREATE OR REPLACE PROCEDURE TEST IS
@@ -16,16 +16,48 @@ END;`);
   const [analysisResult, setAnalysisResult] = useState("");
 
   // =====================================================
+  // FILE UPLOAD
+  // =====================================================
+
+  const handleFileUpload = async (event) => {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    try {
+
+      const text = await file.text();
+
+      setSourceCode(text);
+
+      setAnalysisResult(`
+✔ File loaded successfully
+
+✔ File Name: ${file.name}
+
+✔ Ready for semantic analysis
+      `);
+
+      console.log("FILE LOADED:", file.name);
+
+    } catch (error) {
+
+      console.error(error);
+
+      setAnalysisResult(`
+✖ Error reading file
+      `);
+    }
+  };
+
+  // =====================================================
   // ANALYZE
   // =====================================================
 
   const handleSubmit = async () => {
 
     try {
-
-      console.log("ANALYZE CLICK");
-
-      console.log("SOURCE CODE:", sourceCode);
 
       if (!onAnalyze) {
 
@@ -44,6 +76,8 @@ END;`);
 ✔ Oracle PL/SQL parsed successfully
 
 ✔ Knowledge graph updated
+
+✔ Risk engine executed
       `);
 
     } catch (error) {
@@ -71,7 +105,7 @@ Check backend logs or API response.
         gap: "20px",
         height: "100%",
         padding: "30px",
-        background: "#0f172a",
+        background: "#020617",
         overflow: "auto"
       }}
     >
@@ -84,21 +118,60 @@ Check backend logs or API response.
 
         <h2
           style={{
-            color: "white",
+            color: "#22c55e",
             marginBottom: "8px",
-            fontSize: "32px"
+            fontSize: "34px",
+            fontWeight: "bold"
           }}
         >
-          Upload Oracle PL/SQL
+          LegacyMind Oracle Analyzer
         </h2>
 
         <p
           style={{
-            color: "#94a3b8"
+            color: "#4ade80",
+            fontSize: "15px"
           }}
         >
-          Paste procedures, packages, triggers or views for semantic analysis.
+          Upload Oracle PL/SQL packages, procedures, triggers or views.
         </p>
+
+      </div>
+
+      {/* ============================================= */}
+      {/* FILE UPLOAD */}
+      {/* ============================================= */}
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px"
+        }}
+      >
+
+        <label
+          style={{
+            color: "#22c55e",
+            fontWeight: "bold"
+          }}
+        >
+          Upload Oracle Files
+        </label>
+
+        <input
+          type="file"
+          accept=".sql,.pck,.pkb,.pks,.pls,.txt"
+          onChange={handleFileUpload}
+          style={{
+            background: "#111827",
+            color: "#22c55e",
+            padding: "14px",
+            borderRadius: "14px",
+            border: "1px solid #22c55e",
+            cursor: "pointer"
+          }}
+        />
 
       </div>
 
@@ -106,41 +179,60 @@ Check backend logs or API response.
       {/* TEXTAREA */}
       {/* ============================================= */}
 
-      <textarea
-        value={sourceCode}
-        onChange={(e) =>
-          setSourceCode(e.target.value)
-        }
-        placeholder="Paste Oracle PL/SQL here..."
+      <div
         style={{
-          width: "100%",
-          height: "220px",
-          background: "#020617",
-          color: "#e2e8f0",
-          border: "1px solid #334155",
-          borderRadius: "16px",
-          padding: "18px",
-          fontSize: "14px",
-          fontFamily: "monospace",
-          resize: "vertical",
-          outline: "none",
-          boxSizing: "border-box",
-          lineHeight: "1.6"
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px"
         }}
-      />
+      >
+
+        <label
+          style={{
+            color: "#22c55e",
+            fontWeight: "bold"
+          }}
+        >
+          Oracle Source Code
+        </label>
+
+        <textarea
+          value={sourceCode}
+          onChange={(e) =>
+            setSourceCode(e.target.value)
+          }
+          placeholder="Paste Oracle PL/SQL here..."
+          style={{
+            width: "100%",
+            height: "220px",
+            background: "#000000",
+            color: "#22c55e",
+            border: "1px solid #22c55e",
+            borderRadius: "16px",
+            padding: "18px",
+            fontSize: "14px",
+            fontFamily: "monospace",
+            resize: "vertical",
+            outline: "none",
+            boxSizing: "border-box",
+            lineHeight: "1.6"
+          }}
+        />
+
+      </div>
 
       {/* ============================================= */}
-      {/* BUTTON */}
+      {/* ANALYZE BUTTON */}
       {/* ============================================= */}
 
       <button
         onClick={handleSubmit}
         style={{
           padding: "16px",
-          background: "#2563eb",
+          background: "#16a34a",
           border: "none",
           borderRadius: "14px",
-          color: "white",
+          color: "black",
           fontWeight: "bold",
           fontSize: "16px",
           cursor: "pointer",
@@ -156,8 +248,8 @@ Check backend logs or API response.
 
       <div
         style={{
-          background: "#111827",
-          border: "1px solid #1f2937",
+          background: "#000000",
+          border: "1px solid #22c55e",
           borderRadius: "16px",
           padding: "20px",
           minHeight: "180px"
@@ -167,8 +259,8 @@ Check backend logs or API response.
         <h3
           style={{
             marginBottom: "16px",
-            color: "white",
-            fontSize: "20px"
+            color: "#22c55e",
+            fontSize: "22px"
           }}
         >
           Analysis Output
@@ -176,7 +268,7 @@ Check backend logs or API response.
 
         <pre
           style={{
-            color: "#93c5fd",
+            color: "#22c55e",
             whiteSpace: "pre-wrap",
             fontFamily: "monospace",
             fontSize: "14px",
@@ -186,11 +278,11 @@ Check backend logs or API response.
           {analysisResult || `
 Waiting for analysis...
 
-• Dependency extraction
-• Semantic graph generation
-• PL/SQL parsing
-• Risk detection
-• Knowledge graph update
+✔ Dependency extraction
+✔ Semantic graph generation
+✔ PL/SQL parsing
+✔ Risk detection
+✔ Knowledge graph update
           `}
         </pre>
 
