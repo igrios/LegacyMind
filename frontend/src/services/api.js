@@ -1,19 +1,18 @@
 import axios from "axios";
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_BASE_URL =
+  "https://legacymind-api.onrender.com/api/legacy";
 
-// 🔥 Knowledge Graph completo
-export const getKnowledgeGraph = () => {
+// =====================================================
+// ANALYZE LEGACY CODE
+// =====================================================
 
-  return axios.get(
-    `${API_URL}/knowledge-graph`
-  );
-};
+export const getKnowledgeGraph = async (sourceCode) => {
 
-// 🔵 Impact Graph viejo
-export const getGraph = (table) => {
-
-  return axios.get(
-    `${API_URL}/impact/${table}`
+  return axios.post(
+    `${API_BASE_URL}/analyze`,
+    {
+      sourceCode
+    }
   );
 };
