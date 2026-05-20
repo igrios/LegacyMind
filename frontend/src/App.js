@@ -74,14 +74,16 @@ function App() {
       // BUILD EDGES
       // =================================================
 
-      const flowEdges = res.data.edges.map((edge, index) => ({
-        id: `edge-${index}`,
-        source: edge.source,
-        target: edge.target,
-        label: edge.relation,
-        relation: edge.relation,
-        animated: true
-      }));
+     const responseEdges = res.data.knowledgeRelations || [];
+
+const flowEdges = responseEdges.map((edge, index) => ({
+  id: `edge-${index}`,
+  source: edge.source,
+  target: edge.target,
+  label: edge.relation,
+  relation: edge.relation,
+  animated: true
+}));
 
       // =================================================
       // DEGREE MAP
@@ -101,8 +103,16 @@ function App() {
       // =================================================
       // UNIQUE NODES
       // =================================================
+const nodeSet = new Set();
 
-      const uniqueNodes = [...new Set(res.data.nodes)];
+responseEdges.forEach(edge => {
+
+  nodeSet.add(edge.source);
+
+  nodeSet.add(edge.target);
+});
+
+const uniqueNodes = [...nodeSet];
 
       // =================================================
       // BUILD NODES
