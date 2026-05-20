@@ -16,21 +16,16 @@ import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
 
 class RegexLegacyParserAdapterTest {
 
-    
 
-private final SqlSemanticExtractor semanticExtractor =
-        new SqlSemanticExtractor();
 
-private final GraphRelationExtractor graphRelationExtractor =
-        new GraphRelationExtractor(
-                semanticExtractor);
+    private final SqlSemanticExtractor semanticExtractor = new SqlSemanticExtractor();
 
-private final RegexLegacyParserAdapter parser =
-        new RegexLegacyParserAdapter(
-                new LegacyRiskAnalyzer(),
-                semanticExtractor,
-                graphRelationExtractor);
-        
+    private final GraphRelationExtractor graphRelationExtractor =
+            new GraphRelationExtractor(semanticExtractor);
+
+    private final RegexLegacyParserAdapter parser = new RegexLegacyParserAdapter(
+            new LegacyRiskAnalyzer(), semanticExtractor, graphRelationExtractor);
+
     @Test
     void shouldDetectImplicitJoinTables() {
 
@@ -71,11 +66,14 @@ private final RegexLegacyParserAdapter parser =
         LegacyObject result = parser.parse(sql);
 
         assertNotNull(result);
+
         assertEquals("RISK_PROC", result.getName());
+
         assertEquals("PROCEDURE", result.getType());
 
-        assertEquals("HIGH", result.getRiskLevel());
-        assertTrue(result.getRiskScore() >= 7);
+        assertEquals("CRITICAL", result.getRiskLevel());
+
+        assertTrue(result.getRiskScore() >= 15);
     }
 
     @Test
@@ -231,200 +229,162 @@ private final RegexLegacyParserAdapter parser =
     }
 
     @Test
-void shouldResolveJoinAliases() {
+    void shouldResolveJoinAliases() {
 
-    String sql = """
-        SELECT *
-        FROM CRM.CLIENTES C
-        INNER JOIN ERP.PEDIDOS P
-            ON C.ID = P.CLIENTE_ID
-        WHERE C.STATUS = P.STATUS;
-        """;
+        String sql = """
+                SELECT *
+                FROM CRM.CLIENTES C
+                INNER JOIN ERP.PEDIDOS P
+                    ON C.ID = P.CLIENTE_ID
+                WHERE C.STATUS = P.STATUS;
+                """;
 
-    String fromClause =
-            parser.extractTopLevelFromClause(sql.toUpperCase());
+        String fromClause = parser.extractTopLevelFromClause(sql.toUpperCase());
 
-    List<TableReference> refs =
-            parser.extractTableReferences(fromClause);
+        List<TableReference> refs = parser.extractTableReferences(fromClause);
 
-    List<JoinCondition> conditions =
-            parser.extractJoinConditions(sql);
+        List<JoinCondition> conditions = parser.extractJoinConditions(sql);
 
-    parser.resolveJoinConditions(refs, conditions);
-}
+        parser.resolveJoinConditions(refs, conditions);
+    }
 
-@Test
-void shouldBuildSemanticModel() {
+    @Test
+    void shouldBuildSemanticModel() {
 
-    String sql = """
-        SELECT *
-        FROM CRM.CLIENTES C
-        INNER JOIN ERP.PEDIDOS P
-            ON C.ID = P.CLIENTE_ID;
-        """;
+        String sql = """
+                SELECT *
+                FROM CRM.CLIENTES C
+                INNER JOIN ERP.PEDIDOS P
+                    ON C.ID = P.CLIENTE_ID;
+                """;
 
-    SqlSemanticModel model =
-            parser.buildSemanticModel(sql);
+        SqlSemanticModel model = parser.buildSemanticModel(sql);
 
-    System.out.println(model);
+        System.out.println(model);
 
-    assertFalse(model.getReadTables().isEmpty());
+        assertFalse(model.getReadTables().isEmpty());
 
-    assertFalse(model.getTableReferences().isEmpty());
+        assertFalse(model.getTableReferences().isEmpty());
 
-    assertFalse(model.getJoinConditions().isEmpty());
-}
+        assertFalse(model.getJoinConditions().isEmpty());
+    }
 
-@Test
-void shouldDetectCartesianJoin() {
+    @Test
+    void shouldDetectCartesianJoin() {
 
-    String sql = """
-        SELECT *
-        FROM CLIENTES C,
-             PEDIDOS P;
-        """;
+        String sql = """
+                SELECT *
+                FROM CLIENTES C,
+                     PEDIDOS P;
+                """;
 
-    SqlSemanticModel model =
-            parser.buildSemanticModel(sql);
+        SqlSemanticModel model = parser.buildSemanticModel(sql);
 
-    System.out.println(model);
+        System.out.println(model);
 
-    assertTrue(
-            model.getFindings()
-                    .stream()
-                    .anyMatch(f ->
-                            f.getType()
-                             .equals("CARTESIAN_JOIN")));
-}
+        assertTrue(
+                model.getFindings().stream().anyMatch(f -> f.getType().equals("CARTESIAN_JOIN")));
+    }
 
-@Test
-void shouldNotDetectCartesianJoin() {
+    @Test
+    void shouldNotDetectCartesianJoin() {
 
-    String sql = """
-        SELECT *
-        FROM CLIENTES C
-        INNER JOIN PEDIDOS P
-            ON C.ID = P.CLIENTE_ID;
-        """;
+        String sql = """
+                SELECT *
+                FROM CLIENTES C
+                INNER JOIN PEDIDOS P
+                    ON C.ID = P.CLIENTE_ID;
+                """;
 
-    SqlSemanticModel model =
-            parser.buildSemanticModel(sql);
+        SqlSemanticModel model = parser.buildSemanticModel(sql);
 
-    assertFalse(
-            model.getFindings()
-                    .stream()
-                    .anyMatch(f ->
-                            f.getType()
-                             .equals("CARTESIAN_JOIN")));
-}
+        assertFalse(
+                model.getFindings().stream().anyMatch(f -> f.getType().equals("CARTESIAN_JOIN")));
+    }
 
 
-@Test
-void shouldDetectSelectStarRisk() {
+    @Test
+    void shouldDetectSelectStarRisk() {
 
-    String sql = """
-        SELECT *
-        FROM CLIENTES;
-        """;
+        String sql = """
+                SELECT *
+                FROM CLIENTES;
+                """;
 
-    SqlSemanticModel model =
-            parser.buildSemanticModel(sql);
+        SqlSemanticModel model = parser.buildSemanticModel(sql);
 
-    System.out.println(model);
+        System.out.println(model);
 
-    assertTrue(
-            model.getFindings()
-                    .stream()
-                    .anyMatch(f ->
-                            f.getType()
-                             .equals("SELECT_STAR")));
-}
+        assertTrue(model.getFindings().stream().anyMatch(f -> f.getType().equals("SELECT_STAR")));
+    }
 
-@Test
-void shouldDetectMaterializedView() {
+    @Test
+    void shouldDetectMaterializedView() {
 
-    String sql = """
-        CREATE OR REPLACE MATERIALIZED VIEW MV_CLIENTES
-        AS
-        SELECT *
-        FROM CLIENTES;
-        """;
+        String sql = """
+                CREATE OR REPLACE MATERIALIZED VIEW MV_CLIENTES
+                AS
+                SELECT *
+                FROM CLIENTES;
+                """;
 
-    LegacyObject result =
-            parser.parse(sql);
+        LegacyObject result = parser.parse(sql);
 
-    assertEquals(
-            "MV_CLIENTES",
-            result.getName());
+        assertEquals("MV_CLIENTES", result.getName());
 
-    assertEquals(
-            "MATERIALIZED_VIEW",
-            result.getType());
-}
+        assertEquals("MATERIALIZED_VIEW", result.getType());
+    }
 
-@Test
-void shouldDetectTriggerRelations() {
+    @Test
+    void shouldDetectTriggerRelations() {
 
-    String sql = """
-        CREATE OR REPLACE TRIGGER TRG_AUDITORIA
-        AFTER INSERT ON PAGOS
-        FOR EACH ROW
-        BEGIN
-            INSERT INTO AUDITORIA_LOG
-            VALUES (:NEW.ID);
-        END;
-        """;
+        String sql = """
+                CREATE OR REPLACE TRIGGER TRG_AUDITORIA
+                AFTER INSERT ON PAGOS
+                FOR EACH ROW
+                BEGIN
+                    INSERT INTO AUDITORIA_LOG
+                    VALUES (:NEW.ID);
+                END;
+                """;
 
-    LegacyObject result =
-            parser.parse(sql);
+        LegacyObject result = parser.parse(sql);
 
-    assertEquals(
-            "TRIGGER",
-            result.getType());
+        assertEquals("TRIGGER", result.getType());
 
- boolean found =
-        result.getKnowledgeRelations()
-                .stream()
-                .anyMatch(r ->
+        boolean found = result.getKnowledgeRelations().stream().anyMatch(r ->
 
-                        r.relation()
-                                .equals("TRIGGER_ON")
+        r.relation().equals("TRIGGER_ON")
 
-                                &&
+                &&
 
-                                r.target()
-                                        .equals("PAGOS"));
+                r.target().equals("PAGOS"));
 
-    assertTrue(found);
-}
+        assertTrue(found);
+    }
 
 
-@Test
-void shouldIgnoreAliasColumnsAsTables() {
+    @Test
+    void shouldIgnoreAliasColumnsAsTables() {
 
-    String sql = """
-        SELECT
-            C.ID_CLIENTE,
-            P.CLIENTE_ID
-        FROM CRM.CLIENTES C
-        INNER JOIN ERP.PEDIDOS P
-            ON C.ID_CLIENTE = P.CLIENTE_ID
-        """;
+        String sql = """
+                SELECT
+                    C.ID_CLIENTE,
+                    P.CLIENTE_ID
+                FROM CRM.CLIENTES C
+                INNER JOIN ERP.PEDIDOS P
+                    ON C.ID_CLIENTE = P.CLIENTE_ID
+                """;
 
-    List<String> tables =
-            semanticExtractor.extractReadTables(sql);
+        List<String> tables = semanticExtractor.extractReadTables(sql);
 
-    assertTrue(
-            tables.contains("CRM.CLIENTES"));
+        assertTrue(tables.contains("CRM.CLIENTES"));
 
-    assertTrue(
-            tables.contains("ERP.PEDIDOS"));
+        assertTrue(tables.contains("ERP.PEDIDOS"));
 
-    assertFalse(
-            tables.contains("C.ID_CLIENTE"));
+        assertFalse(tables.contains("C.ID_CLIENTE"));
 
-    assertFalse(
-            tables.contains("P.CLIENTE_ID"));
-}
+        assertFalse(tables.contains("P.CLIENTE_ID"));
+    }
 
 }
