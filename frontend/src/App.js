@@ -9,12 +9,8 @@ function App() {
   // STATES
   // =====================================================
 
-  const [screen, setScreen] = useState("graph");
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
-  const [selectedNode, setSelectedNode] = useState(null);
-
-  // Backend status
   const [backendReady, setBackendReady] = useState(false);
 
   // =====================================================
@@ -33,7 +29,9 @@ function App() {
           "https://legacymind-api.onrender.com/api/system/health"
         );
 
-        if (response.ok) {
+        console.log("STATUS:", response.status);
+
+        if (response.status === 200) {
 
           console.log("Backend READY");
 
@@ -102,7 +100,7 @@ function App() {
 
     } catch (error) {
 
-      console.error(error);
+      console.error("GRAPH ERROR:", error);
     }
   };
 
@@ -152,11 +150,10 @@ function App() {
       <GraphView
         nodes={nodes}
         edges={edges}
-        onNodeClick={setSelectedNode}
       />
 
-       </div>
+    </div>
   );
 }
-    
+
 export default App;
