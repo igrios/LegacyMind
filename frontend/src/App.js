@@ -1,23 +1,79 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import GraphView from "./components/GraphView";
 import OraclePackageUploader from "./components/OraclePackageUploader";
 import { getKnowledgeGraph } from "./services/api";
 
 function App() {
+
+  // =====================================================
+  // STATES
+  // =====================================================
+
   const [screen, setScreen] = useState("graph");
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
 
+  // Backend Warmup
+  const [backendReady, setBackendReady] = useState(false);
+
+  // =====================================================
+  // BACKEND HEALTH CHECK
+  // =====================================================
+
+  useEffect(() => {
+
+    const checkBackend = async () => {
+
+      try {
+
+        console.log("Checking backend...");
+
+        const response = await fetch(
+          "https://legacymind-api.onrender.com/api/system/health"
+        );
+
+        console.log("STATUS:", response.status);
+
+        if (response.ok) {
+
+          console.log("Backend READY");
+
+          setBackendReady(true);
+        }
+
+      } catch (error) {
+
+        console.log("Backend warming...");
+      }
+    };
+
+    // Primera llamada
+    checkBackend();
+
+    // Polling cada 3 segundos
+    const interval = setInterval(checkBackend, 3000);
+
+    return () => clearInterval(interval);
+
+  }, []);
+
   // =====================================================
   // LOAD GRAPH
   // =====================================================
-  const handleAnalyze = async () => {
+
+  const handleAnalyze = async (sourceCode) => {
+
     try {
-      const res = await getKnowledgeGraph();
+
+      const res = await getKnowledgeGraph(sourceCode);
+
       console.log("GRAPH:", res.data);
 
-      // Edges
+      // =================================================
+      // BUILD EDGES
+      // =================================================
+
       const flowEdges = res.data.edges.map((edge, index) => ({
         id: `edge-${index}`,
         source: edge.source,
@@ -27,61 +83,109 @@ function App() {
         animated: true
       }));
 
-      // Degree Map
+      // =================================================
+      // DEGREE MAP
+      // =================================================
+
       const degreeMap = {};
+
       flowEdges.forEach(edge => {
-        degreeMap[edge.source] = (degreeMap[edge.source] || 0) + 1;
-        degreeMap[edge.target] = (degreeMap[edge.target] || 0) + 1;
+
+        degreeMap[edge.source] =
+          (degreeMap[edge.source] || 0) + 1;
+
+        degreeMap[edge.target] =
+          (degreeMap[edge.target] || 0) + 1;
       });
 
-      // Unique Nodes
+      // =================================================
+      // UNIQUE NODES
+      // =================================================
+
       const uniqueNodes = [...new Set(res.data.nodes)];
 
-      // Build Nodes
+      // =================================================
+      // BUILD NODES
+      // =================================================
+
       const flowNodes = uniqueNodes.map((node, index) => {
-        // Node Type Detection
+
+        // =============================================
+        // NODE TYPE
+        // =============================================
+
         let nodeType = "TABLE";
-        if (node.startsWith("PKG_")) nodeType = "PACKAGE";
-        else if (node.startsWith("SP_")) nodeType = "PROCEDURE";
-        else if (node.startsWith("TRG_")) nodeType = "TRIGGER";
-        else if (node.startsWith("VW_") || node.startsWith("V_")) nodeType = "VIEW";
 
-        // Color Mapping
-        let background = "#22c55e"; // Table default
-        if (nodeType === "PACKAGE") background = "#2563eb";
-        else if (nodeType === "PROCEDURE") background = "#06b6d4";
-        else if (nodeType === "TRIGGER") background = "#f97316";
-        else if (nodeType === "VIEW") background = "#a855f7";
+        if (node.startsWith("PKG_")) {
+          nodeType = "PACKAGE";
+        } else if (node.startsWith("SP_")) {
+          nodeType = "PROCEDURE";
+        } else if (node.startsWith("TRG_")) {
+          nodeType = "TRIGGER";
+        } else if (
+          node.startsWith("VW_") ||
+          node.startsWith("V_")
+        ) {
+          nodeType = "VIEW";
+        }
 
-        // Criticality / Sizing based on degree
+        // =============================================
+        // COLORS
+        // =============================================
+
+        let background = "#22c55e";
+
+        if (nodeType === "PACKAGE") {
+          background = "#2563eb";
+        } else if (nodeType === "PROCEDURE") {
+          background = "#06b6d4";
+        } else if (nodeType === "TRIGGER") {
+          background = "#f97316";
+        } else if (nodeType === "VIEW") {
+          background = "#a855f7";
+        }
+
+        // =============================================
+        // CRITICALITY
+        // =============================================
+
         const degree = degreeMap[node] || 0;
+
         let width = 180;
         let height = 55;
         let fontSize = "14px";
         let glow = "0 8px 20px rgba(0,0,0,0.25)";
 
         if (degree >= 6) {
+
           width = 320;
           height = 95;
           fontSize = "20px";
-          glow = "0 0 30px rgba(239,68,68,0.8)"; // Red glowing for highly coupled nodes
+
+          glow = "0 0 30px rgba(239,68,68,0.8)";
+
         } else if (degree >= 3) {
+
           width = 250;
           height = 75;
           fontSize = "16px";
         }
 
         return {
+
           id: node,
+
           position: {
             x: 150 + (index % 4) * 320,
             y: 120 + Math.floor(index / 4) * 220
           },
+
           data: {
             label: node,
             nodeType,
             degree
           },
+
           style: {
             background,
             color: "white",
@@ -100,7 +204,12 @@ function App() {
 
       setNodes(flowNodes);
       setEdges(flowEdges);
+
+      // Cambiar automáticamente al graph
+      setScreen("graph");
+
     } catch (err) {
+
       console.error("Error loading knowledge graph:", err);
     }
   };
@@ -108,39 +217,56 @@ function App() {
   // =====================================================
   // CLEAR DATABASE
   // =====================================================
+
   const handleClearDatabase = async () => {
-    const confirmed = window.confirm("¿Seguro que querés borrar todos los análisis?");
+
+    const confirmed = window.confirm(
+      "¿Seguro que querés borrar todos los análisis?"
+    );
+
     if (!confirmed) return;
 
     try {
-      // ✅ ARREGLADO: URL limpia y formateada sin código duplicado
-      const response = await fetch("https://legacymind-api.onrender.com/api/legacy/database", {
-        method: "DELETE"
-      });
+
+      const response = await fetch(
+        "https://legacymind-api.onrender.com/api/legacy/database",
+        {
+          method: "DELETE"
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Error cleaning database");
       }
 
       alert("Base limpiada correctamente");
+
       setNodes([]);
       setEdges([]);
       setSelectedNode(null);
+
     } catch (err) {
+
       console.error(err);
+
       alert("Error al borrar análisis");
     }
   };
 
   // =====================================================
-  // NODE CLICK HANDLER
+  // NODE CLICK
   // =====================================================
+
   const handleNodeClick = (nodeId) => {
+
     const node = nodes.find(n => n.id === nodeId);
+
     if (!node) return;
 
     const relatedEdges = edges.filter(
-      edge => edge.source === nodeId || edge.target === nodeId
+      edge =>
+        edge.source === nodeId ||
+        edge.target === nodeId
     );
 
     setSelectedNode({
@@ -150,9 +276,57 @@ function App() {
   };
 
   // =====================================================
-  // VIEW RENDER
+  // BACKEND WARMUP SCREEN
   // =====================================================
+
+  if (!backendReady) {
+
+    return (
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          background: "#020617",
+          color: "white",
+          fontFamily: "Arial"
+        }}
+      >
+
+        <h1
+          style={{
+            fontSize: "48px",
+            marginBottom: "20px"
+          }}
+        >
+          🔥 Warming LegacyMind Backend
+        </h1>
+
+        <p style={{ color: "#94a3b8" }}>
+          Initializing semantic engine...
+        </p>
+
+        <p style={{ color: "#94a3b8" }}>
+          Connecting PostgreSQL...
+        </p>
+
+        <p style={{ color: "#94a3b8" }}>
+          Loading dependency graph...
+        </p>
+
+      </div>
+    );
+  }
+
+  // =====================================================
+  // MAIN VIEW
+  // =====================================================
+
   return (
+
     <div
       style={{
         display: "flex",
@@ -162,7 +336,9 @@ function App() {
         overflow: "hidden"
       }}
     >
+
       {/* SIDEBAR */}
+
       <div
         style={{
           width: "280px",
@@ -174,36 +350,54 @@ function App() {
           gap: "14px"
         }}
       >
+
         <div>
-          <h1 style={{ fontSize: "42px", marginBottom: "6px" }}>LegacyMind</h1>
-          <p style={{ color: "#94a3b8" }}>AI-Powered Oracle Legacy Analyzer</p>
+
+          <h1
+            style={{
+              fontSize: "42px",
+              marginBottom: "6px"
+            }}
+          >
+            LegacyMind
+          </h1>
+
+          <p style={{ color: "#94a3b8" }}>
+            AI-Powered Oracle Legacy Analyzer
+          </p>
+
         </div>
 
-        <hr style={{ borderColor: "#1f2937", width: "100%" }} />
-
-        <button onClick={handleAnalyze} style={buttonStyle("#2563eb")}>
-          Analyze Graph
-        </button>
+        <hr
+          style={{
+            borderColor: "#1f2937",
+            width: "100%"
+          }}
+        />
 
         <button
-          onClick={() => {
-            setScreen("graph");
-            handleAnalyze();
-          }}
-          style={buttonStyle("#059669")}
+          onClick={() => setScreen("graph")}
+          style={buttonStyle("#2563eb")}
         >
           Open Graph
         </button>
 
-        <button onClick={handleClearDatabase} style={buttonStyle("#dc2626")}>
-          Borrar análisis
-        </button>
-
-        <button onClick={() => setScreen("upload")} style={buttonStyle("#7c3aed")}>
+        <button
+          onClick={() => setScreen("upload")}
+          style={buttonStyle("#7c3aed")}
+        >
           Upload Packages
         </button>
 
-        {/* STATS PANEL */}
+        <button
+          onClick={handleClearDatabase}
+          style={buttonStyle("#dc2626")}
+        >
+          Borrar análisis
+        </button>
+
+        {/* STATS */}
+
         <div
           style={{
             marginTop: "30px",
@@ -212,23 +406,48 @@ function App() {
             padding: "18px"
           }}
         >
+
           <h3>System Stats</h3>
+
           <p>Nodes: {nodes.length}</p>
+
           <p>Relations: {edges.length}</p>
+
         </div>
+
       </div>
 
-      {/* MAIN VIEW AREA */}
-      <div style={{ flex: 1, position: "relative" }}>
+      {/* MAIN CONTENT */}
+
+      <div
+        style={{
+          flex: 1,
+          position: "relative"
+        }}
+      >
+
         {screen === "graph" ? (
-          <GraphView nodes={nodes} edges={edges} onNodeClick={handleNodeClick} />
+
+          <GraphView
+            nodes={nodes}
+            edges={edges}
+            onNodeClick={handleNodeClick}
+          />
+
         ) : (
-          <OraclePackageUploader />
+
+          <OraclePackageUploader
+            onAnalyze={handleAnalyze}
+          />
+
         )}
+
       </div>
 
-      {/* RIGHT METRICS PANEL */}
+      {/* RIGHT PANEL */}
+
       {selectedNode && (
+
         <div
           style={{
             width: "320px",
@@ -238,6 +457,7 @@ function App() {
             overflow: "auto"
           }}
         >
+
           <div
             style={{
               display: "flex",
@@ -246,7 +466,15 @@ function App() {
               marginBottom: "20px"
             }}
           >
-            <h2 style={{ fontSize: "24px" }}>{selectedNode.data.label}</h2>
+
+            <h2
+              style={{
+                fontSize: "24px"
+              }}
+            >
+              {selectedNode.data.label}
+            </h2>
+
             <button
               onClick={() => setSelectedNode(null)}
               style={{
@@ -261,42 +489,42 @@ function App() {
             >
               ✕
             </button>
+
           </div>
 
-          <p><strong>Type:</strong> {selectedNode.data.nodeType}</p>
-          <p><strong>Criticality:</strong> {selectedNode.data.degree}</p>
-          <p><strong>Relations:</strong> {selectedNode.relatedEdges.length}</p>
+          <p>
+            <strong>Type:</strong>
+            {" "}
+            {selectedNode.data.nodeType}
+          </p>
 
-          <hr style={{ marginTop: "20px", marginBottom: "20px", borderColor: "#1f2937" }} />
+          <p>
+            <strong>Criticality:</strong>
+            {" "}
+            {selectedNode.data.degree}
+          </p>
 
-          <h3 style={{ marginBottom: "15px" }}>Connected Relations</h3>
+          <p>
+            <strong>Relations:</strong>
+            {" "}
+            {selectedNode.relatedEdges.length}
+          </p>
 
-          {selectedNode.relatedEdges.map((edge, index) => (
-            <div
-              key={index}
-              style={{
-                background: "#0f172a",
-                borderRadius: "14px",
-                padding: "14px",
-                marginBottom: "12px"
-              }}
-            >
-              <strong>{edge.relation}</strong>
-              <br />
-              {`${edge.source} → ${edge.target}`}
-            </div>
-          ))}
         </div>
       )}
+
     </div>
   );
 }
 
 // =====================================================
-// BUTTON STYLE REUSABLE COMPONENT
+// BUTTON STYLE
 // =====================================================
+
 function buttonStyle(background) {
+
   return {
+
     padding: "14px",
     borderRadius: "14px",
     border: "none",
