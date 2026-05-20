@@ -1,13 +1,89 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import GraphView from "./components/GraphView";
 import OraclePackageUploader from "./components/OraclePackageUploader";
 import { getKnowledgeGraph } from "./services/api";
 
 function App() {
+
+  // =====================================================
+  // STATES
+  // =====================================================
+
   const [screen, setScreen] = useState("graph");
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+
+  // NUEVO STATE
+  const [backendReady, setBackendReady] = useState(false);
+
+  // =====================================================
+  // BACKEND HEALTH CHECK
+  // =====================================================
+
+  useEffect(() => {
+
+    const checkBackend = async () => {
+
+      try {
+
+        const response = await fetch(
+          "https://legacymind-api.onrender.com/api/system/health"
+        );
+
+        if (response.ok) {
+
+          setBackendReady(true);
+        }
+
+      } catch (error) {
+
+        console.log("Backend warming...");
+      }
+    };
+
+    // Primera llamada
+    checkBackend();
+
+    // Polling cada 3 segundos
+    const interval = setInterval(checkBackend, 3000);
+
+    return () => clearInterval(interval);
+
+  }, []);
+
+  // =====================================================
+  // WARMING SCREEN
+  // =====================================================
+
+  if (!backendReady) {
+
+    return (
+
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          background: "#0f172a",
+          color: "white",
+          fontFamily: "Arial"
+        }}
+      >
+
+        <h1>🔥 Warming LegacyMind Backend</h1>
+
+        <p>Initializing semantic engine...</p>
+
+        <p>Connecting PostgreSQL...</p>
+
+        <p>Loading dependency graph...</p>
+
+      </div>
+    );
+  }
 
   // =====================================================
   // LOAD GRAPH

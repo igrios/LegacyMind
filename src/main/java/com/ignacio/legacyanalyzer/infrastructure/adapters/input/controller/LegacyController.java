@@ -1,5 +1,4 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.input.controller;
-
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
