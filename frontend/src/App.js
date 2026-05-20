@@ -155,8 +155,8 @@ function App() {
         onNodeClick={setSelectedNode}
       />
 
-    </div>
+       </div>
   );
 }
-
+    
 export default App;
