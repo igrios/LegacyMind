@@ -7,13 +7,9 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 
 export default function GraphView({
-
   nodes,
-
   edges,
-
   onNodeClick
-
 }) {
 
   return (
@@ -21,31 +17,24 @@ export default function GraphView({
     <div
       style={{
         width: "100%",
-        height: "100vh",
-        background: "#0f172a"
+        height: "100%"
       }}
     >
 
       <ReactFlow
-
         nodes={nodes}
-
         edges={edges}
-
         fitView
-
-        onNodeClick={(event, node) => {
-
-          onNodeClick(node.id);
-        }}
-
+        onNodeClick={(event, node) =>
+          onNodeClick(node.id)
+        }
       >
 
-        <MiniMap />
+        <Background />
 
         <Controls />
 
-        <Background />
+        <MiniMap />
 
       </ReactFlow>
 
