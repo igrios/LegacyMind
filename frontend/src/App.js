@@ -25,17 +25,11 @@ function App() {
 
       try {
 
-        console.log("Checking backend...");
-
         const response = await fetch(
           "https://legacymind-api.onrender.com/api/system/health"
         );
 
-        console.log("STATUS:", response.status);
-
-        if (response.status === 200) {
-
-          console.log("Backend READY");
+        if (response.ok) {
 
           setBackendReady(true);
         }
@@ -46,10 +40,8 @@ function App() {
       }
     };
 
-    // Primera llamada
     checkBackend();
 
-    // Polling cada 3 segundos
     const interval = setInterval(checkBackend, 3000);
 
     return () => clearInterval(interval);
@@ -127,21 +119,13 @@ function App() {
         }}
       >
 
-        <h1 style={{ fontSize: "48px", marginBottom: "30px" }}>
-          🔥 Warming LegacyMind Backend
-        </h1>
+        <h1>🔥 Warming LegacyMind Backend</h1>
 
-        <p style={{ margin: "10px" }}>
-          Initializing semantic engine...
-        </p>
+        <p>Initializing semantic engine...</p>
 
-        <p style={{ margin: "10px" }}>
-          Connecting PostgreSQL...
-        </p>
+        <p>Connecting PostgreSQL...</p>
 
-        <p style={{ margin: "10px" }}>
-          Loading dependency graph...
-        </p>
+        <p>Loading dependency graph...</p>
 
       </div>
     );
@@ -215,7 +199,7 @@ function App() {
       </div>
 
       {/* ================================================= */}
-      {/* CONTENT */}
+      {/* MAIN CONTENT */}
       {/* ================================================= */}
 
       <div
@@ -227,7 +211,7 @@ function App() {
       >
 
         {/* ============================================= */}
-        {/* LEFT PANEL */}
+        {/* LEFT SIDEBAR */}
         {/* ============================================= */}
 
         <div
@@ -240,24 +224,40 @@ function App() {
           }}
         >
 
-          <h3>⚡ Controls</h3>
+          <h2 style={{ marginBottom: "20px" }}>
+            ⚡ Controls
+          </h2>
 
-          <div style={{ marginTop: "20px" }}>
-            <OraclePackageUploader onAnalyze={handleAnalyze} />
-          </div>
+          {/* ========================================= */}
+          {/* UPLOADER */}
+          {/* ========================================= */}
+
+          <OraclePackageUploader
+            onAnalyze={handleAnalyze}
+          />
+
+          {/* ========================================= */}
+          {/* NODE DETAILS */}
+          {/* ========================================= */}
 
           {selectedNode && (
 
-            <div style={{ marginTop: "30px" }}>
+            <div
+              style={{
+                marginTop: "30px",
+                background: "#111827",
+                padding: "15px",
+                borderRadius: "10px"
+              }}
+            >
 
               <h3>📌 Selected Node</h3>
 
               <pre
                 style={{
-                  background: "#111827",
-                  padding: "10px",
-                  borderRadius: "8px",
-                  overflow: "auto"
+                  overflow: "auto",
+                  fontSize: "12px",
+                  color: "#93c5fd"
                 }}
               >
                 {JSON.stringify(selectedNode, null, 2)}
