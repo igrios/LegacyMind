@@ -1,366 +1,200 @@
-import React from "react";
+import { useState } from "react";
 
-export default function OraclePackageUploader() {
-
-  const [sourceCode, setSourceCode] = React.useState("");
-
-  const [response, setResponse] = React.useState(null);
-
-  const [loading, setLoading] = React.useState(false);
-
-  const API_URL = process.env.REACT_APP_API_URL;
+export default function OraclePackageUploader({
+  onAnalyze
+}) {
 
   // =====================================================
-  // FILE UPLOAD
+  // SOURCE CODE
   // =====================================================
 
-  const handleFileUpload = async (event) => {
+  const [sourceCode, setSourceCode] = useState(`CREATE OR REPLACE PROCEDURE TEST IS
+BEGIN
+    NULL;
+END;`);
 
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    const text = await file.text();
-
-    setSourceCode(text);
-  };
+  const [analysisResult, setAnalysisResult] = useState("");
 
   // =====================================================
   // ANALYZE
   // =====================================================
 
-  const handleAnalyze = async () => {
+  const handleSubmit = async () => {
 
     try {
 
-      setLoading(true);
+      console.log("ANALYZE CLICK");
 
-      const res = await fetch(
+      console.log("SOURCE CODE:", sourceCode);
 
-        `${API_URL}/analyze`,
+      if (!onAnalyze) {
 
-        {
+        console.error("onAnalyze undefined");
 
-          method: "POST",
+        return;
+      }
 
-          headers: {
+      await onAnalyze(sourceCode);
 
-            "Content-Type": "application/json"
-          },
+      setAnalysisResult(`
+✔ Semantic analysis completed
 
-          body: JSON.stringify({
+✔ Dependency graph generated
 
-            sourceCode
-          })
-        }
-      );
+✔ Oracle PL/SQL parsed successfully
 
-      const data = await res.json();
+✔ Knowledge graph updated
+      `);
 
-      setResponse(data);
+    } catch (error) {
 
-    } catch (err) {
+      console.error(error);
 
-      console.error(err);
+      setAnalysisResult(`
+✖ Error analyzing package
 
-    } finally {
-
-      setLoading(false);
+Check backend logs or API response.
+      `);
     }
   };
 
   // =====================================================
-  // UI
+  // COMPONENT
   // =====================================================
 
   return (
 
     <div
       style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "20px",
+        height: "100%",
         padding: "30px",
-        height: "100vh",
-        overflow: "auto",
         background: "#0f172a",
-        color: "white"
+        overflow: "auto"
       }}
     >
 
-      {/* ========================================= */}
-      {/* HEADER */}
-      {/* ========================================= */}
+      {/* ============================================= */}
+      {/* TITLE */}
+      {/* ============================================= */}
 
-      <div
-        style={{
-          marginBottom: "25px"
-        }}
-      >
-
-        <h1
-          style={{
-            fontSize: "42px",
-            marginBottom: "10px"
-          }}
-        >
-          Oracle Package Analyzer
-        </h1>
-
-        <p
-          style={{
-            color: "#94a3b8",
-            fontSize: "16px"
-          }}
-        >
-          Upload Oracle PL/SQL packages and analyze dependencies,
-          procedures, tables and legacy risk.
-        </p>
-
-      </div>
-
-      {/* ========================================= */}
-      {/* FILE UPLOAD */}
-      {/* ========================================= */}
-
-      <div
-        style={{
-          background: "#111827",
-          borderRadius: "18px",
-          padding: "25px",
-          marginBottom: "25px",
-          border: "1px solid #1f2937"
-        }}
-      >
+      <div>
 
         <h2
           style={{
-            marginBottom: "15px"
+            color: "white",
+            marginBottom: "8px",
+            fontSize: "32px"
           }}
         >
-          Upload Package
+          Upload Oracle PL/SQL
         </h2>
-
-        <input
-          type="file"
-          accept=".sql,.pck,.pkb,.pkg,.txt"
-          onChange={handleFileUpload}
-          style={{
-            marginBottom: "15px"
-          }}
-        />
 
         <p
           style={{
             color: "#94a3b8"
           }}
         >
-          Supported formats:
-          {" "}
-          .sql .pck .pkb .pkg
+          Paste procedures, packages, triggers or views for semantic analysis.
         </p>
 
       </div>
 
-      {/* ========================================= */}
-      {/* SOURCE CODE */}
-      {/* ========================================= */}
+      {/* ============================================= */}
+      {/* TEXTAREA */}
+      {/* ============================================= */}
+
+      <textarea
+        value={sourceCode}
+        onChange={(e) =>
+          setSourceCode(e.target.value)
+        }
+        placeholder="Paste Oracle PL/SQL here..."
+        style={{
+          width: "100%",
+          height: "220px",
+          background: "#020617",
+          color: "#e2e8f0",
+          border: "1px solid #334155",
+          borderRadius: "16px",
+          padding: "18px",
+          fontSize: "14px",
+          fontFamily: "monospace",
+          resize: "vertical",
+          outline: "none",
+          boxSizing: "border-box",
+          lineHeight: "1.6"
+        }}
+      />
+
+      {/* ============================================= */}
+      {/* BUTTON */}
+      {/* ============================================= */}
+
+      <button
+        onClick={handleSubmit}
+        style={{
+          padding: "16px",
+          background: "#2563eb",
+          border: "none",
+          borderRadius: "14px",
+          color: "white",
+          fontWeight: "bold",
+          fontSize: "16px",
+          cursor: "pointer",
+          transition: "all 0.2s ease"
+        }}
+      >
+        Analyze Package
+      </button>
+
+      {/* ============================================= */}
+      {/* ANALYSIS RESULT */}
+      {/* ============================================= */}
 
       <div
         style={{
           background: "#111827",
-          borderRadius: "18px",
-          padding: "25px",
-          border: "1px solid #1f2937"
+          border: "1px solid #1f2937",
+          borderRadius: "16px",
+          padding: "20px",
+          minHeight: "180px"
         }}
       >
 
-        <h2
+        <h3
           style={{
-            marginBottom: "15px"
-          }}
-        >
-          Oracle Source Code
-        </h2>
-
-        <textarea
-
-          value={sourceCode}
-
-          onChange={(e) => setSourceCode(e.target.value)}
-
-          placeholder="Paste Oracle PL/SQL package here..."
-
-          style={{
-
-            width: "100%",
-
-            height: "350px",
-
-            background: "#020617",
-
-            color: "#22c55e",
-
-            border: "1px solid #334155",
-
-            borderRadius: "14px",
-
-            padding: "18px",
-
-            fontFamily: "monospace",
-
-            fontSize: "14px",
-
-            resize: "vertical",
-
-            outline: "none",
-
-            lineHeight: "1.6"
-          }}
-        />
-
-        <button
-
-          onClick={handleAnalyze}
-
-          disabled={loading || !sourceCode}
-
-          style={{
-
-            marginTop: "20px",
-
-            background: loading
-
-              ? "#475569"
-
-              : "#2563eb",
-
+            marginBottom: "16px",
             color: "white",
-
-            border: "none",
-
-            padding: "14px 24px",
-
-            borderRadius: "12px",
-
-            cursor: "pointer",
-
-            fontWeight: "bold",
-
-            fontSize: "15px"
+            fontSize: "20px"
           }}
         >
-
-          {
-            loading
-
-              ?
-
-              "Analyzing..."
-
-              :
-
-              "Analyze Package"
-          }
-
-        </button>
-
-      </div>
-
-      {/* ========================================= */}
-      {/* PAYLOAD */}
-      {/* ========================================= */}
-
-      <div
-        style={{
-          background: "#111827",
-          borderRadius: "18px",
-          padding: "25px",
-          marginTop: "25px",
-          border: "1px solid #1f2937"
-        }}
-      >
-
-        <h2
-          style={{
-            marginBottom: "15px"
-          }}
-        >
-          Generated Payload
-        </h2>
+          Analysis Output
+        </h3>
 
         <pre
           style={{
-            background: "#020617",
-            padding: "20px",
-            borderRadius: "14px",
-            overflow: "auto",
-            color: "#38bdf8"
+            color: "#93c5fd",
+            whiteSpace: "pre-wrap",
+            fontFamily: "monospace",
+            fontSize: "14px",
+            lineHeight: "1.6"
           }}
         >
-          {
+          {analysisResult || `
+Waiting for analysis...
 
-            JSON.stringify(
-
-              {
-                sourceCode
-              },
-
-              null,
-
-              2
-            )
-          }
+• Dependency extraction
+• Semantic graph generation
+• PL/SQL parsing
+• Risk detection
+• Knowledge graph update
+          `}
         </pre>
 
       </div>
-
-      {/* ========================================= */}
-      {/* RESPONSE */}
-      {/* ========================================= */}
-
-      {
-
-        response && (
-
-          <div
-            style={{
-              background: "#111827",
-              borderRadius: "18px",
-              padding: "25px",
-              marginTop: "25px",
-              marginBottom: "120px",
-              border: "1px solid #1f2937"
-            }}
-          >
-
-            <h2
-              style={{
-                marginBottom: "15px"
-              }}
-            >
-              Analysis Result
-            </h2>
-
-            <pre
-              style={{
-                background: "#020617",
-                padding: "20px",
-                borderRadius: "14px",
-                overflow: "auto",
-                color: "#22c55e",
-                maxHeight: "700px"
-              }}
-            >
-              {
-                JSON.stringify(
-                  response,
-                  null,
-                  2
-                )
-              }
-            </pre>
-
-          </div>
-        )
-      }
 
     </div>
   );

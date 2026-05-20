@@ -205,6 +205,8 @@ function App() {
       setNodes(flowNodes);
       setEdges(flowEdges);
 
+console.log("FLOW NODES:", flowNodes);
+console.log("FLOW EDGES:", flowEdges);
       // Cambiar automáticamente al graph
       setScreen("graph");
 
