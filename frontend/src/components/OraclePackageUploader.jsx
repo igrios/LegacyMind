@@ -14,6 +14,7 @@ BEGIN
 END;`);
 
   const [analysisResult, setAnalysisResult] = useState("");
+  const [analysisJson, setAnalysisJson] = useState(null);
 
   // =====================================================
   // FILE UPLOAD
@@ -66,7 +67,9 @@ END;`);
         return;
       }
 
-      await onAnalyze(sourceCode);
+      const responseData = await onAnalyze(sourceCode);
+
+      setAnalysisJson(responseData || null);
 
       setAnalysisResult(`
 ✔ Semantic analysis completed
@@ -83,6 +86,8 @@ END;`);
     } catch (error) {
 
       console.error(error);
+
+      setAnalysisJson(null);
 
       setAnalysisResult(`
 ✖ Error analyzing package
@@ -287,6 +292,50 @@ Waiting for analysis...
         </pre>
 
       </div>
+
+
+      {/* ============================================= */}
+      {/* RAW JSON RESPONSE */}
+      {/* ============================================= */}
+
+      {analysisJson && (
+
+        <div
+          style={{
+            background: "#000000",
+            border: "1px solid #22c55e",
+            borderRadius: "16px",
+            padding: "20px",
+            minHeight: "180px"
+          }}
+        >
+
+          <h3
+            style={{
+              marginBottom: "16px",
+              color: "#22c55e",
+              fontSize: "22px"
+            }}
+          >
+            API JSON Response
+          </h3>
+
+          <pre
+            style={{
+              color: "#22c55e",
+              whiteSpace: "pre-wrap",
+              fontFamily: "monospace",
+              fontSize: "13px",
+              lineHeight: "1.5",
+              maxHeight: "320px",
+              overflow: "auto"
+            }}
+          >
+            {JSON.stringify(analysisJson, null, 2)}
+          </pre>
+
+        </div>
+      )}
 
     </div>
   );

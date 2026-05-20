@@ -201,6 +201,8 @@ console.log("FLOW EDGES:", flowEdges);
       // Cambiar automáticamente al graph
       setScreen("graph");
 
+      return res.data;
+
     } catch (err) {
 
       console.error("Error loading knowledge graph:", err);
