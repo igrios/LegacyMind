@@ -1,7 +1,8 @@
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap
+  MiniMap,
+  MarkerType
 } from "reactflow";
 
 import "reactflow/dist/style.css";
@@ -12,9 +13,44 @@ export default function GraphView({
   onNodeClick
 }) {
 
-  console.log("GRAPH NODES:", nodes);
+  console.log("GRAPH VIEW NODES:", nodes);
+  console.log("GRAPH VIEW EDGES:", edges);
 
-  console.log("GRAPH EDGES:", edges);
+  // =====================================================
+  // SAFE NODES
+  // =====================================================
+
+  const safeNodes = nodes.map(node => ({
+
+    ...node,
+
+    sourcePosition: "right",
+
+    targetPosition: "left"
+  }));
+
+  // =====================================================
+  // SAFE EDGES
+  // =====================================================
+
+  const safeEdges = edges.map(edge => ({
+
+    ...edge,
+
+    markerEnd: {
+      type: MarkerType.ArrowClosed
+    },
+
+    style: {
+      stroke: "#22c55e",
+      strokeWidth: 2
+    },
+
+    labelStyle: {
+      fill: "white",
+      fontWeight: "bold"
+    }
+  }));
 
   return (
 
@@ -27,10 +63,12 @@ export default function GraphView({
     >
 
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={safeNodes}
+        edges={safeEdges}
         fitView
-        nodesDraggable={true}
+        nodesDraggable
+        nodesConnectable={false}
+        elementsSelectable
         onNodeClick={(event, node) => {
 
           console.log("NODE CLICK:", node);
