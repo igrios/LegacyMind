@@ -262,24 +262,26 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 }
             }
 
-        // ==========================================
+            // ==========================================
             // SELECT / JOIN RELATIONS (CORREGIDO PARA IMPLÍCITOS)
             // ==========================================
             String fromClause = extractTopLevelFromClause(stmt);
             log.debug("FROM FOR REL >>> {}", fromClause);
 
             if (fromClause != null && !fromClause.isBlank()) {
-                
+
                 // 1. Obtenemos las referencias reales (Tabla + Alias si existe)
                 List<TableReference> references = extractTableReferences(fromClause);
-                
-                // 2. Extraemos solo los nombres reales de las tablas ignorando los alias individuales
-                List<String> realTables = references.stream()
-                        .map(TableReference::getFullName) // Toma el nombre real, ej: "PRODUCTOS"
-                        .map(this::clean)
-                        .filter(this::isValidTable)
-                        .distinct()
-                        .toList();
+
+                // 2. Extraemos solo los nombres reales de las tablas ignorando los alias
+                // individuales
+                List<String> realTables = references.stream().map(TableReference::getFullName) // Toma
+                                                                                               // el
+                                                                                               // nombre
+                                                                                               // real,
+                                                                                               // ej:
+                                                                                               // "PRODUCTOS"
+                        .map(this::clean).filter(this::isValidTable).distinct().toList();
 
                 log.debug("REAL TABLES FOR COUPLING >>> {}", realTables);
 
@@ -375,10 +377,10 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 String remaining = normalized.substring(i).toUpperCase();
 
                 if (remaining.startsWith("WHERE ") || remaining.startsWith("GROUP BY ")
-                        || remaining.startsWith("ORDER BY ")
-                        || remaining.startsWith("CONNECT BY ") || remaining.startsWith("HAVING ")
-                        || remaining.startsWith("UNION ") || remaining.startsWith("INTERSECT ")
-                        || remaining.startsWith("MINUS ") || remaining.startsWith(";")) {
+                        || remaining.startsWith("ORDER BY ") || remaining.startsWith("CONNECT BY ")
+                        || remaining.startsWith("HAVING ") || remaining.startsWith("UNION ")
+                        || remaining.startsWith("INTERSECT ") || remaining.startsWith("MINUS ")
+                        || remaining.startsWith(";")) {
 
                     break;
                 }
@@ -455,7 +457,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         for (TableReference ref : references) {
             if (ref.getFullName() != null) {
                 String table = clean(ref.getFullName().toUpperCase());
-                
+
                 if (isValidTable(table)) {
                     tables.add(table);
                     log.debug("EXTRACTED REAL TABLE FROM REF >>> {}", table);
@@ -544,95 +546,80 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         return references;
     }
 
-public List<JoinCondition> extractJoinConditions(String sql) {
+    public List<JoinCondition> extractJoinConditions(String sql) {
 
-    List<JoinCondition> conditions = new ArrayList<>();
+        List<JoinCondition> conditions = new ArrayList<>();
 
-    Pattern joinPattern = Pattern.compile(
-            "([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*=\\s*([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)",
-            Pattern.CASE_INSENSITIVE);
+        sql = sql.replaceAll("\\(\\+\\)", "");
 
-    Matcher matcher = joinPattern.matcher(sql.toUpperCase());
+        Pattern joinPattern = Pattern.compile(
+                "([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*=\\s*([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)",
+                Pattern.CASE_INSENSITIVE);
 
-    while (matcher.find()) {
+        Matcher matcher = joinPattern.matcher(sql.toUpperCase());
 
-        String leftAlias = matcher.group(1);
+        while (matcher.find()) {
 
-        String leftColumn = matcher.group(2);
+            String leftAlias = matcher.group(1);
 
-        String rightAlias = matcher.group(3);
+            String leftColumn = matcher.group(2);
 
-        String rightColumn = matcher.group(4);
+            String rightAlias = matcher.group(3);
 
-        // =========================================
-        // IGNORE INVALID / GHOST ALIASES
-        // =========================================
+            String rightColumn = matcher.group(4);
 
-        if (!isValidSqlAlias(leftAlias) || !isValidSqlAlias(rightAlias)) {
+            // =========================================
+            // IGNORE INVALID / GHOST ALIASES
+            // =========================================
 
-            log.warn(
-                    "IGNORING INVALID JOIN ALIAS >>> {} -> {}",
-                    leftAlias,
-                    rightAlias);
+            if (!isValidSqlAlias(leftAlias) || !isValidSqlAlias(rightAlias)) {
 
-            continue;
+                log.warn("IGNORING INVALID JOIN ALIAS >>> {} -> {}", leftAlias, rightAlias);
+
+                continue;
+            }
+
+            JoinCondition condition =
+                    new JoinCondition(leftAlias, leftColumn, rightAlias, rightColumn);
+
+            conditions.add(condition);
+
+            log.debug("JOIN CONDITION >>> {}", condition);
         }
 
-        JoinCondition condition =
-                new JoinCondition(
-                        leftAlias,
-                        leftColumn,
-                        rightAlias,
-                        rightColumn);
-
-        conditions.add(condition);
-
-        log.debug("JOIN CONDITION >>> {}", condition);
+        return conditions;
     }
 
-    return conditions;
-}
+    // =========================================
+    // VALID SQL ALIAS
+    // =========================================
 
-// =========================================
-// VALID SQL ALIAS
-// =========================================
+    private boolean isValidSqlAlias(String alias) {
 
-private boolean isValidSqlAlias(String alias) {
+        if (alias == null || alias.isBlank()) {
 
-    if (alias == null || alias.isBlank()) {
+            return false;
+        }
 
-        return false;
+        alias = alias.toUpperCase();
+
+        // Ignore obvious invalid aliases
+
+        if (Set.of("SELECT", "FROM", "WHERE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON",
+                "AND", "OR").contains(alias)) {
+
+            return false;
+        }
+
+        // Ignore suspicious fake aliases like XX
+
+        if (alias.matches("X{2,}")) {
+
+            return false;
+        }
+
+        return true;
     }
-
-    alias = alias.toUpperCase();
-
-    // Ignore obvious invalid aliases
-
-    if (Set.of(
-            "SELECT",
-            "FROM",
-            "WHERE",
-            "JOIN",
-            "LEFT",
-            "RIGHT",
-            "INNER",
-            "OUTER",
-            "ON",
-            "AND",
-            "OR").contains(alias)) {
-
-        return false;
-    }
-
-    // Ignore suspicious fake aliases like XX
-
-    if (alias.matches("X{2,}")) {
-
-        return false;
-    }
-
-    return true;
-}
 
     public void resolveJoinConditions(List<TableReference> references,
             List<JoinCondition> conditions) {
