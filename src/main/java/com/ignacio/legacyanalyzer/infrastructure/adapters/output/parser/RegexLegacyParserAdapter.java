@@ -262,55 +262,36 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 }
             }
 
-            // =============================
-            // SELECT / JOIN RELATIONS
-            // =============================
-
+        // ==========================================
+            // SELECT / JOIN RELATIONS (CORREGIDO PARA IMPLÍCITOS)
+            // ==========================================
             String fromClause = extractTopLevelFromClause(stmt);
-
-            List<TableReference> references = extractTableReferences(fromClause);
-
             log.debug("FROM FOR REL >>> {}", fromClause);
 
-            if (fromClause == null || fromClause.isBlank()) {
+            if (fromClause != null && !fromClause.isBlank()) {
+                
+                // 1. Obtenemos las referencias reales (Tabla + Alias si existe)
+                List<TableReference> references = extractTableReferences(fromClause);
+                
+                // 2. Extraemos solo los nombres reales de las tablas ignorando los alias individuales
+                List<String> realTables = references.stream()
+                        .map(TableReference::getFullName) // Toma el nombre real, ej: "PRODUCTOS"
+                        .map(this::clean)
+                        .filter(this::isValidTable)
+                        .distinct()
+                        .toList();
 
-                continue;
-            }
+                log.debug("REAL TABLES FOR COUPLING >>> {}", realTables);
 
-            Map<String, String> aliasMap = semanticExtractor.buildAliasMap(references);
+                // 3. Generamos las relaciones entre las tablas de la consulta
+                for (int i = 0; i < realTables.size(); i++) {
+                    for (int j = i + 1; j < realTables.size(); j++) {
+                        String left = realTables.get(i);
+                        String right = realTables.get(j);
 
-            Set<String> sources = extractTables(fromClause);
-
-            log.debug("SOURCES >>> {}", sources);
-
-            List<String> sourceList = new ArrayList<>(sources);
-
-            for (int i = 0; i < sourceList.size(); i++) {
-
-                for (int j = i + 1; j < sourceList.size(); j++) {
-
-                    String left = sourceList.get(i);
-
-                    String right = sourceList.get(j);
-
-                    String resolvedLeft = aliasMap.get(left.toUpperCase());
-
-                    String resolvedRight = aliasMap.get(right.toUpperCase());
-
-                    if (resolvedLeft == null || resolvedRight == null) {
-
-                        log.warn("IGNORING INVALID RELATION >>> {} -> {}", left, right);
-
-                        continue;
-                    }
-
-                    left = resolvedLeft;
-
-                    right = resolvedRight;
-
-                    if (isValidTable(left) && isValidTable(right) && !left.equals(right)) {
-
-                        relations.add(left + "->" + right);
+                        if (!left.equals(right)) {
+                            relations.add(left + "->" + right);
+                        }
                     }
                 }
             }
