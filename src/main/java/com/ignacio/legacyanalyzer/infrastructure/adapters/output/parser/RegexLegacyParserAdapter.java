@@ -598,37 +598,95 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         return references;
     }
 
+public List<JoinCondition> extractJoinConditions(String sql) {
 
-    public List<JoinCondition> extractJoinConditions(String sql) {
+    List<JoinCondition> conditions = new ArrayList<>();
 
-        List<JoinCondition> conditions = new ArrayList<>();
+    Pattern joinPattern = Pattern.compile(
+            "([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*=\\s*([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)",
+            Pattern.CASE_INSENSITIVE);
 
-        Pattern joinPattern = Pattern.compile(
-                "([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*=\\s*([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)",
-                Pattern.CASE_INSENSITIVE);
+    Matcher matcher = joinPattern.matcher(sql.toUpperCase());
 
-        Matcher matcher = joinPattern.matcher(sql.toUpperCase());
+    while (matcher.find()) {
 
-        while (matcher.find()) {
+        String leftAlias = matcher.group(1);
 
-            String leftAlias = matcher.group(1);
+        String leftColumn = matcher.group(2);
 
-            String leftColumn = matcher.group(2);
+        String rightAlias = matcher.group(3);
 
-            String rightAlias = matcher.group(3);
+        String rightColumn = matcher.group(4);
 
-            String rightColumn = matcher.group(4);
+        // =========================================
+        // IGNORE INVALID / GHOST ALIASES
+        // =========================================
 
-            JoinCondition condition =
-                    new JoinCondition(leftAlias, leftColumn, rightAlias, rightColumn);
+        if (!isValidSqlAlias(leftAlias) || !isValidSqlAlias(rightAlias)) {
 
-            conditions.add(condition);
+            log.warn(
+                    "IGNORING INVALID JOIN ALIAS >>> {} -> {}",
+                    leftAlias,
+                    rightAlias);
 
-            log.debug("JOIN CONDITION >>> {}", condition);
+            continue;
         }
 
-        return conditions;
+        JoinCondition condition =
+                new JoinCondition(
+                        leftAlias,
+                        leftColumn,
+                        rightAlias,
+                        rightColumn);
+
+        conditions.add(condition);
+
+        log.debug("JOIN CONDITION >>> {}", condition);
     }
+
+    return conditions;
+}
+
+// =========================================
+// VALID SQL ALIAS
+// =========================================
+
+private boolean isValidSqlAlias(String alias) {
+
+    if (alias == null || alias.isBlank()) {
+
+        return false;
+    }
+
+    alias = alias.toUpperCase();
+
+    // Ignore obvious invalid aliases
+
+    if (Set.of(
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "JOIN",
+            "LEFT",
+            "RIGHT",
+            "INNER",
+            "OUTER",
+            "ON",
+            "AND",
+            "OR").contains(alias)) {
+
+        return false;
+    }
+
+    // Ignore suspicious fake aliases like XX
+
+    if (alias.matches("X{2,}")) {
+
+        return false;
+    }
+
+    return true;
+}
 
     public void resolveJoinConditions(List<TableReference> references,
             List<JoinCondition> conditions) {
