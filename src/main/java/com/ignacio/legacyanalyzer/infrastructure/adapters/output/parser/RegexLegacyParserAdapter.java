@@ -293,9 +293,20 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                     String right = sourceList.get(j);
 
-                    left = aliasMap.getOrDefault(left, left);
+                    String resolvedLeft = aliasMap.get(left.toUpperCase());
 
-                    right = aliasMap.getOrDefault(right, right);
+                    String resolvedRight = aliasMap.get(right.toUpperCase());
+
+                    if (resolvedLeft == null || resolvedRight == null) {
+
+                        log.warn("IGNORING INVALID RELATION >>> {} -> {}", left, right);
+
+                        continue;
+                    }
+
+                    left = resolvedLeft;
+
+                    right = resolvedRight;
 
                     if (isValidTable(left) && isValidTable(right) && !left.equals(right)) {
 
@@ -619,52 +630,43 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         return conditions;
     }
 
-  public void resolveJoinConditions(List<TableReference> references,
-        List<JoinCondition> conditions) {
+    public void resolveJoinConditions(List<TableReference> references,
+            List<JoinCondition> conditions) {
 
-    Map<String, String> aliasMap = new HashMap<>();
+        Map<String, String> aliasMap = new HashMap<>();
 
-    for (TableReference ref : references) {
+        for (TableReference ref : references) {
 
-        if (ref.getAlias() != null) {
+            if (ref.getAlias() != null) {
 
-            aliasMap.put(ref.getAlias().toUpperCase(),
-                    ref.getFullName());
-        }
-    }
-
-    log.debug("ALIAS MAP >>> {}", aliasMap);
-
-    for (JoinCondition condition : conditions) {
-
-        String leftTable =
-                aliasMap.get(condition.getLeftAlias().toUpperCase());
-
-        String rightTable =
-                aliasMap.get(condition.getRightAlias().toUpperCase());
-
-        // =========================================
-        // INVALID ALIAS VALIDATION
-        // =========================================
-
-        if (leftTable == null || rightTable == null) {
-
-            log.warn(
-                    "INVALID JOIN ALIAS DETECTED >>> {} -> {}",
-                    condition.getLeftAlias(),
-                    condition.getRightAlias());
-
-            continue;
+                aliasMap.put(ref.getAlias().toUpperCase(), ref.getFullName());
+            }
         }
 
-        log.debug(
-                "RESOLVED JOIN >>> {}.{} -> {}.{}",
-                leftTable,
-                condition.getLeftColumn(),
-                rightTable,
-                condition.getRightColumn());
+        log.debug("ALIAS MAP >>> {}", aliasMap);
+
+        for (JoinCondition condition : conditions) {
+
+            String leftTable = aliasMap.get(condition.getLeftAlias().toUpperCase());
+
+            String rightTable = aliasMap.get(condition.getRightAlias().toUpperCase());
+
+            // =========================================
+            // INVALID ALIAS VALIDATION
+            // =========================================
+
+            if (leftTable == null || rightTable == null) {
+
+                log.warn("INVALID JOIN ALIAS DETECTED >>> {} -> {}", condition.getLeftAlias(),
+                        condition.getRightAlias());
+
+                continue;
+            }
+
+            log.debug("RESOLVED JOIN >>> {}.{} -> {}.{}", leftTable, condition.getLeftColumn(),
+                    rightTable, condition.getRightColumn());
+        }
     }
-}
 
     public SqlSemanticModel buildSemanticModel(String sql) {
 
