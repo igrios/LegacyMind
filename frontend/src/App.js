@@ -117,9 +117,9 @@ function App() {
       const response = await fetch("https://legacymind-api.onrender.com/api/legacy/database", {
         method: "DELETE"
       });
-
+     
       if (!response.ok) {
-        throw new Error("Error cleaning database");
+        throw new Error("Error cleaning databasesssss");
       }
 
       alert("Base limpiada correctamente");
