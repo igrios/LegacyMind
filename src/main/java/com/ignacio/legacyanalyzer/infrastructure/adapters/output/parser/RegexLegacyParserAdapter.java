@@ -374,11 +374,11 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                 String remaining = normalized.substring(i).toUpperCase();
 
-                if (remaining.startsWith(" WHERE ") || remaining.startsWith(" GROUP BY ")
-                        || remaining.startsWith(" ORDER BY ")
-                        || remaining.startsWith(" CONNECT BY ") || remaining.startsWith(" HAVING ")
-                        || remaining.startsWith(" UNION ") || remaining.startsWith(" INTERSECT ")
-                        || remaining.startsWith(" MINUS ") || remaining.startsWith(";")) {
+                if (remaining.startsWith("WHERE ") || remaining.startsWith("GROUP BY ")
+                        || remaining.startsWith("ORDER BY ")
+                        || remaining.startsWith("CONNECT BY ") || remaining.startsWith("HAVING ")
+                        || remaining.startsWith("UNION ") || remaining.startsWith("INTERSECT ")
+                        || remaining.startsWith("MINUS ") || remaining.startsWith(";")) {
 
                     break;
                 }
