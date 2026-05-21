@@ -449,62 +449,27 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             return tables;
         }
 
-        List<String> parts = splitTopLevelComma(clause);
+        // Usamos la lógica de TableReference que ya sabe separar perfectamente Tabla de Alias
+        List<TableReference> references = extractTableReferences(clause);
 
-        for (String part : parts) {
-
-            log.debug("PART >>> {}", part);
-
-            String trimmed = part.trim();
-
-            // =============================
-            // SUBQUERY
-            // =============================
-
-            if (trimmed.startsWith("(")) {
-
-                List<String> nestedTables = semanticExtractor.extractReadTables(trimmed);
-
-                log.debug("NESTED TABLES >>> {}", nestedTables);
-
-                tables.addAll(nestedTables);
-
-                continue;
-            }
-
-            // =============================
-            // NORMAL TABLE
-            // =============================
-
-            String table = trimmed.split("\\s+")[0];
-
-            // if (table.contains(".")) {
-
-            // table = table.substring(table.lastIndexOf(".") + 1);
-            // }
-
-            table = clean(table);
-
-
-            if (isValidTable(table)) {
-
-                tables.add(table);
-
-                log.debug("EXTRACT TABLE >>> {}", table);
+        for (TableReference ref : references) {
+            if (ref.getFullName() != null) {
+                String table = clean(ref.getFullName().toUpperCase());
+                
+                if (isValidTable(table)) {
+                    tables.add(table);
+                    log.debug("EXTRACTED REAL TABLE FROM REF >>> {}", table);
+                }
             }
         }
 
-        Matcher joinMatcher = JOIN_PATTERN.matcher(clause);
-
-        while (joinMatcher.find()) {
-
-            String table = clean(joinMatcher.group(1));
-
-            if (table != null && !table.isBlank()) {
-
-                tables.add(table);
-
-                log.debug("JOIN EXTRACT TABLE >>> {}", table);
+        // Procesar subconsultas remanentes si empiezan con paréntesis
+        List<String> parts = splitTopLevelComma(clause);
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (trimmed.startsWith("(")) {
+                List<String> nestedTables = semanticExtractor.extractReadTables(trimmed);
+                tables.addAll(nestedTables);
             }
         }
 
