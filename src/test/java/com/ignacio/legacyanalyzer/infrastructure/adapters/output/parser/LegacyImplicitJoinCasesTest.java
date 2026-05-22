@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
+import com.ignacio.legacyanalyzer.domain.services.CursorSemanticExtractor;
 import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
 import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
 import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
@@ -22,11 +23,16 @@ public class LegacyImplicitJoinCasesTest {
   private final GraphRelationExtractor graphRelationExtractor = new GraphRelationExtractor(
       semanticExtractor);
 
-  private final RegexLegacyParserAdapter parser = new RegexLegacyParserAdapter(
-      new LegacyRiskAnalyzer(),
-      semanticExtractor,
-      graphRelationExtractor);
+private final RegexLegacyParserAdapter parser =
+        new RegexLegacyParserAdapter(
 
+                new LegacyRiskAnalyzer(),
+
+                graphRelationExtractor,
+
+                semanticExtractor,
+
+                new CursorSemanticExtractor());
   @Test
   void shouldDetectImplicitJoinTables() {
     String sql = """

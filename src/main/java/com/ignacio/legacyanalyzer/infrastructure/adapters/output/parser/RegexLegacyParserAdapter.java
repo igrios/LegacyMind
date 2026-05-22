@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
+import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
 import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
@@ -20,6 +21,7 @@ import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
+import com.ignacio.legacyanalyzer.domain.services.CursorSemanticExtractor;
 import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
 import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
 import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
@@ -32,8 +34,9 @@ import lombok.extern.slf4j.Slf4j;
 public class RegexLegacyParserAdapter implements LegacyParserPort {
 
     private final LegacyRiskAnalyzer riskAnalyzer;
-    private final SqlSemanticExtractor semanticExtractor;
     private final GraphRelationExtractor graphRelationExtractor;
+    private final SqlSemanticExtractor semanticExtractor;
+    private final CursorSemanticExtractor cursorSemanticExtractor;
 
     private static final Pattern NAME_PATTERN = Pattern.compile("CREATE\\s+OR\\s+REPLACE\\s+"
             + "(MATERIALIZED\\s+VIEW|PACKAGE|PROCEDURE|FUNCTION|TRIGGER|VIEW)" + "\\s+(BODY\\s+)?"
@@ -156,6 +159,17 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
         List<KnowledgeRelation> knowledgeRelations =
                 graphRelationExtractor.extractKnowledgeRelations(sourceCode, name);
+
+        // =============================
+        // CURSOR METADATA
+        // =============================
+
+        List<CursorMetadata> cursors = cursorSemanticExtractor.extractCursors(normalized);
+
+        log.debug("CURSORS DETECTED >>> {}", cursors);
+
+
+
         // =============================
         // REFERENCED TABLES
         // =============================
@@ -178,6 +192,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 referencedTables,
 
                 subprograms,
+
+                cursors,
 
                 knowledgeRelations,
 
