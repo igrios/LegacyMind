@@ -3,96 +3,189 @@ package com.ignacio.legacyanalyzer.application.mapper;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
+import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
+import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.CursorMetadataEntity;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.SubprogramNodeEntity;
 
 public class LegacyObjectMapper {
 
-    public LegacyObjectEntity toEntity(LegacyObject object) {
+        public LegacyObjectEntity toEntity(LegacyObject object) {
 
-        return new LegacyObjectEntity(
+                // =========================================
+                // MAP CURSORS FIRST
+                // =========================================
 
-                object.getId(),
+                List<CursorMetadataEntity> cursorEntities = mapCursors(object.getCursors());
+                List<SubprogramNodeEntity> subprogramEntities =
+                                mapSubprograms(object.getSubprograms());
+                // =========================================
+                // CREATE PARENT ENTITY
+                // =========================================
 
-                object.getName(),
+                LegacyObjectEntity entity = new LegacyObjectEntity(
 
-                object.getType(),
+                                object.getId(),
 
-                object.getSourceCode(),
+                                object.getName(),
 
-                String.join(",", object.getProcedures()),
+                                object.getType(),
 
-                String.join(",", object.getReferencedTables()),
+                                object.getSourceCode(),
 
-                String.join(",", object.getCodeSmells()),
+                                String.join(",", object.getProcedures()),
 
-                object.getRiskScore(),
+                                String.join(",", object.getReferencedTables()),
 
-                object.getRiskLevel(),
+                                String.join(",", object.getCodeSmells()),
 
-                object.getFunctionalSummary(),
+                                object.getRiskScore(),
 
-                LocalDateTime.now());
-    }
+                                object.getRiskLevel(),
 
-    public AnalyzeLegacyResponse toResponse(LegacyObject object) {
+                                object.getFunctionalSummary(),
 
-        return new AnalyzeLegacyResponse(
+                                cursorEntities,
 
-                object.getName(),
+                                subprogramEntities,
 
-                object.getType(),
+                                LocalDateTime.now());
 
-                object.getProcedures(),
+                // =========================================
+                // SET PARENT REFERENCE
+                // =========================================
 
-                object.getReferencedTables(),
+                cursorEntities.forEach(
 
-                object.getCodeSmells(),
+                                cursor -> cursor.setLegacyObject(entity));
 
-                object.getRiskScore(),
+                System.out.println("CURSOR ENTITIES SIZE >>> " + cursorEntities.size());
 
-                object.getRiskLevel(),
+                cursorEntities.forEach(
 
-                object.getFunctionalSummary(),
-
-                object.getSubprograms(),
-
-                object.getKnowledgeRelations());
-    }
-
-    public AnalyzeLegacyResponse toResponse(LegacyObjectEntity entity) {
-
-        return new AnalyzeLegacyResponse(
-
-                entity.getName(),
-
-                entity.getType(),
-
-                split(entity.getProcedures()),
-
-                split(entity.getReferencedTables()),
-
-                split(entity.getCodeSmells()),
-
-                entity.getRiskScore() != null ? entity.getRiskScore() : 0,
-
-                entity.getRiskLevel() != null ? entity.getRiskLevel() : "LOW",
-
-                entity.getFunctionalSummary() != null ? entity.getFunctionalSummary()
-                        : "No summary available",
-
-                List.of(),
-
-                List.of());
-    }
-
-    private List<String> split(String value) {
-
-        if (value == null || value.isBlank()) {
-            return List.of();
+                                c -> System.out.println("CURSOR ENTITY >>> " + c.getCursorName()));
+                return entity;
         }
 
-        return Arrays.stream(value.split(",")).map(String::trim).toList();
-    }
+        public AnalyzeLegacyResponse toResponse(LegacyObject object) {
+
+                return new AnalyzeLegacyResponse(
+
+                                object.getName(),
+
+                                object.getType(),
+
+                                object.getProcedures(),
+
+                                object.getReferencedTables(),
+
+                                object.getCodeSmells(),
+
+                                object.getRiskScore(),
+
+                                object.getRiskLevel(),
+
+                                object.getFunctionalSummary(),
+
+                                object.getSubprograms(),
+
+                                object.getKnowledgeRelations());
+        }
+
+        public AnalyzeLegacyResponse toResponse(LegacyObjectEntity entity) {
+
+                return new AnalyzeLegacyResponse(
+
+                                entity.getName(),
+
+                                entity.getType(),
+
+                                split(entity.getProcedures()),
+
+                                split(entity.getReferencedTables()),
+
+                                split(entity.getCodeSmells()),
+
+                                entity.getRiskScore() != null ? entity.getRiskScore() : 0,
+
+                                entity.getRiskLevel() != null ? entity.getRiskLevel() : "LOW",
+
+                                entity.getFunctionalSummary() != null
+                                                ? entity.getFunctionalSummary()
+                                                : "No summary available",
+
+                                List.of(),
+
+                                List.of());
+        }
+
+        private List<String> split(String value) {
+
+                if (value == null || value.isBlank()) {
+
+                        return List.of();
+                }
+
+                return Arrays.stream(value.split(","))
+
+                                .map(String::trim)
+
+                                .toList();
+        }
+
+        private List<CursorMetadataEntity> mapCursors(List<CursorMetadata> cursors) {
+
+                if (cursors == null || cursors.isEmpty()) {
+
+                        return List.of();
+                }
+
+                return cursors.stream()
+
+                                .map(cursor -> {
+
+                                        CursorMetadataEntity entity = new CursorMetadataEntity();
+
+                                        entity.setCursorName(cursor.cursorName());
+
+                                        entity.setBulkCollect(cursor.bulkCollect());
+
+                                        entity.setForUpdate(cursor.forUpdate());
+
+                                        entity.setForall(cursor.forall());
+
+                                        return entity;
+                                })
+
+                                .collect(Collectors.toList());
+        }
+
+        private List<SubprogramNodeEntity> mapSubprograms(List<SubprogramNode> subprograms) {
+
+                if (subprograms == null || subprograms.isEmpty()) {
+
+                        return List.of();
+                }
+
+                return subprograms.stream()
+
+                                .map(subprogram -> {
+
+                                        SubprogramNodeEntity entity = new SubprogramNodeEntity();
+                                        entity.setSubprogramName(subprogram.getName());
+
+                                        entity.setSubprogramType(subprogram.getType());
+
+                                        return entity;
+                                })
+
+                                .toList();
+        }
+
+
+
 }

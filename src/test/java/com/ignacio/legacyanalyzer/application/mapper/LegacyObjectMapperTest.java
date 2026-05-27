@@ -2,6 +2,7 @@ package com.ignacio.legacyanalyzer.application.mapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
@@ -25,6 +26,8 @@ class LegacyObjectMapperTest {
                 5,
                 "MEDIUM",
                 "summary",
+                Collections.emptyList(),
+                    Collections.emptyList(),
                 LocalDateTime.now()
         );
 
@@ -54,6 +57,8 @@ class LegacyObjectMapperTest {
                 null,
                 null,
                 null,
+                Collections.emptyList(),
+                Collections.emptyList(),
                 LocalDateTime.now()
         );
 

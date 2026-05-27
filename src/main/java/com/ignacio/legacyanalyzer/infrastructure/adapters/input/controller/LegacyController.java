@@ -1,6 +1,5 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.input.controller;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -17,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
+import com.ignacio.legacyanalyzer.application.mapper.LegacyObjectMapper;
 import com.ignacio.legacyanalyzer.application.usecase.DeleteDatabaseUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
@@ -29,7 +29,6 @@ import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
-import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
 
 
@@ -68,7 +67,7 @@ public class LegacyController {
                 this.impactService = impactService;
                 this.getImpactGraphUseCase = getImpactGraphUseCase;
                 this.knowledgeRelationRepository = knowledgeRelationRepository;
-                this.deleteDatabaseUseCase = deleteDatabaseUseCase;     
+                this.deleteDatabaseUseCase = deleteDatabaseUseCase;
         }
 
         @PostMapping("/analyze")
@@ -112,13 +111,9 @@ public class LegacyController {
                         dependencyPort.saveAllDependencies(dependencies);
                 }
 
-                repository.save(new LegacyObjectEntity(object.getId(), object.getName(),
-                                object.getType(), object.getSourceCode(),
-                                String.join(",", object.getProcedures()),
-                                String.join(",", object.getReferencedTables()),
-                                String.join(",", object.getCodeSmells()), object.getRiskScore(),
-                                object.getRiskLevel(), object.getFunctionalSummary(),
-                                LocalDateTime.now()));
+                LegacyObjectMapper mapper = new LegacyObjectMapper();
+
+                repository.save(mapper.toEntity(object));
 
                 return new AnalyzeLegacyResponse(
 
@@ -201,74 +196,47 @@ public class LegacyController {
                 return getImpactGraphUseCase.execute(table);
         }
 
-@GetMapping("/knowledge-graph")
-public Map<String, Object> getKnowledgeGraph() {
+        @GetMapping("/knowledge-graph")
+        public Map<String, Object> getKnowledgeGraph() {
 
-    List<KnowledgeRelationEntity> relations =
-            knowledgeRelationRepository.findAll();
+                List<KnowledgeRelationEntity> relations = knowledgeRelationRepository.findAll();
 
-    Set<String> nodes =
-            new HashSet<>();
+                Set<String> nodes = new HashSet<>();
 
-    List<Map<String, String>> edges =
-            relations.stream()
-                    .map(relation -> {
+                List<Map<String, String>> edges = relations.stream().map(relation -> {
 
-                        nodes.add(
-                                relation.getSource()
-                        );
+                        nodes.add(relation.getSource());
 
-                        nodes.add(
-                                relation.getTarget()
-                        );
+                        nodes.add(relation.getTarget());
 
-                        Map<String, String> edge =
-                                new HashMap<>();
+                        Map<String, String> edge = new HashMap<>();
 
-                        edge.put(
-                                "source",
-                                relation.getSource()
-                        );
+                        edge.put("source", relation.getSource());
 
-                        edge.put(
-                                "target",
-                                relation.getTarget()
-                        );
+                        edge.put("target", relation.getTarget());
 
-                        edge.put(
-                                "relation",
-                                relation.getRelation()
-                        );
+                        edge.put("relation", relation.getRelation());
 
                         return edge;
-                    })
-                    .toList();
+                }).toList();
 
-    Map<String, Object> result =
-            new HashMap<>();
+                Map<String, Object> result = new HashMap<>();
 
-    result.put(
-            "nodes",
-            nodes
-    );
+                result.put("nodes", nodes);
 
-    result.put(
-            "edges",
-            edges
-    );
+                result.put("edges", edges);
 
-    return result;
-}
+                return result;
+        }
 
 
-  @DeleteMapping("/database")
-    public ResponseEntity<String> clearDatabase() {
+        @DeleteMapping("/database")
+        public ResponseEntity<String> clearDatabase() {
 
-        deleteDatabaseUseCase.execute();
+                deleteDatabaseUseCase.execute();
 
-        return ResponseEntity.ok(
-                "Database cleaned successfully");
-    }
+                return ResponseEntity.ok("Database cleaned successfully");
+        }
 
 
 

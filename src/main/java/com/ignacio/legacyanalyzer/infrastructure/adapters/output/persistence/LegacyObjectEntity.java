@@ -1,12 +1,16 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.CursorMetadataEntity;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.SubprogramNodeEntity;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-
-
 
 @Entity
 @Table(name = "legacy_objects")
@@ -36,8 +40,26 @@ public class LegacyObjectEntity {
 
    private LocalDateTime createdAt;
 
+
+
 @Column(name = "functional_summary")
 private String functionalSummary;
+
+
+@OneToMany(
+        cascade = CascadeType.ALL,
+        orphanRemoval = true)
+@JoinColumn(name = "legacy_object_id")
+private List<CursorMetadataEntity> cursors;
+
+@OneToMany(
+        cascade = CascadeType.ALL,
+        orphanRemoval = true)
+@JoinColumn(name = "legacy_object_id")
+private List<SubprogramNodeEntity> subprograms;
+
+
+
 
     public LegacyObjectEntity() {
       }
@@ -52,6 +74,8 @@ private String functionalSummary;
             Integer riskScore,
             String riskLevel,
             String functionalSummary,
+            List<CursorMetadataEntity> cursors,
+            List<SubprogramNodeEntity> subprograms,
             LocalDateTime createdAt  ){
 
               this.id = id;
@@ -65,6 +89,8 @@ private String functionalSummary;
         this.riskLevel = riskLevel;
         this.createdAt = createdAt;
         this.functionalSummary = functionalSummary;
+        this.cursors = cursors;
+        this.subprograms = subprograms;
    }
 
 public String getId() {
@@ -106,7 +132,23 @@ public String getFunctionalSummary() {
     return functionalSummary;
 }
 
+public List<CursorMetadataEntity> getCursors() {
+    return cursors;
+}   
+public void setCursors(List<CursorMetadataEntity> cursors) {
+    this.cursors = cursors; 
+}
 
+public List<SubprogramNodeEntity> getSubprograms() {
+
+    return subprograms;
+}
+
+public void setSubprograms(
+        List<SubprogramNodeEntity> subprograms) {
+
+    this.subprograms = subprograms;
+}
 
     public LocalDateTime getCreatedAt() {
         return createdAt;

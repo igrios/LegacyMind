@@ -167,6 +167,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         List<CursorMetadata> cursors = cursorSemanticExtractor.extractCursors(normalized);
 
         log.debug("CURSORS DETECTED >>> {}", cursors);
+        log.info("CURSORS DETECTED >>> {}", cursors);
 
 
 
