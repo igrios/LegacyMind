@@ -252,58 +252,59 @@ public class SqlSemanticExtractor {
     return table.replaceAll("[^A-Z0-9_.$#@]", "");
   }
 
- private boolean isValidTable(String table) {
+  public boolean isValidTable(String table) {
 
     if (table == null || table.isBlank()) {
 
-        return false;
+      return false;
     }
 
-    table = table.toUpperCase();
+    table = table.trim().toUpperCase();
+
+    // =============================================
+    // BASIC HARDENING
+    // =============================================
+
+   if (table.length() == 1) {
+
+    return table.matches("[A-Z]");
+}
+
+    // =============================================
+    // SQL BLACKLIST
+    // =============================================
 
     if (Set.of(
-            "SELECT",
-            "FROM",
-            "WHERE",
-            "INSERT",
-            "INTO",
-            "VALUES",
-            "UPDATE",
-            "SET",
-            "DELETE",
-            "JOIN",
-            "LEFT",
-            "RIGHT",
-            "INNER",
-            "OUTER",
-            "ON",
-            "AND",
-            "OR",
-            "GROUP",
-            "ORDER",
-            "BY",
-            "BEGIN",
-            "END",
-            "NULL")
-            .contains(table)) {
 
-        return false;
+        "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "JOIN",
+        "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY", "BEGIN",
+        "END", "NULL", "IS", "AS", "LOOP", "FOR", "WHEN", "OTHERS", "DE"
+
+    ).contains(table)) {
+
+      return false;
     }
 
+    // =============================================
     // CLIENTES
-    if (table.matches(
-            "[A-Z][A-Z0-9_#$@]*")) {
+    // STOCK_DEPOSITO
+    // =============================================
 
-        return true;
+    if (table.matches("[A-Z][A-Z0-9_#$@]*")) {
+
+      return true;
     }
 
+    // =============================================
     // CRM.CLIENTES
-    if (table.matches(
-            "[A-Z][A-Z0-9_#$@]*\\.[A-Z][A-Z0-9_#$@]*")) {
+    // ERP.PEDIDOS
+    // =============================================
 
-        return true;
+    if (table.matches("[A-Z][A-Z0-9_#$@]*\\.[A-Z][A-Z0-9_#$@]*")) {
+
+      return true;
     }
 
     return false;
-}
+  }
 }

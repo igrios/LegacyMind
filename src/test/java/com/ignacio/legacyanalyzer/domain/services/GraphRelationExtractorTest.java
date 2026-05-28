@@ -45,10 +45,11 @@ class GraphRelationExtractorTest {
             END;
             """;
 
-        List<KnowledgeRelation> relations =
-                graphRelationExtractor.extractKnowledgeRelations(
-                        sourceCode,
-                        "SP_REPORTE_PRODUCTOS");
+List<KnowledgeRelation> relations =
+        graphRelationExtractor.extractKnowledgeRelations(
+                sourceCode,
+                "SP_REPORTE_PRODUCTOS",
+                List.of());
 
         // =========================================
         // EXPECTED TABLES

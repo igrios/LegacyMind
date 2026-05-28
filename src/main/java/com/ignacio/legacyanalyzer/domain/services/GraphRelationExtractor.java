@@ -6,6 +6,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
+import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,8 +18,9 @@ public class GraphRelationExtractor {
     private final SqlSemanticExtractor semanticExtractor;
 
     public List<KnowledgeRelation> extractKnowledgeRelations(
-            String sourceCode,
-            String objectName) {
+        String sourceCode,
+        String objectName,
+        List<SubprogramNode> subprograms){
 
         // =============================================
         // NORMALIZATION
@@ -166,6 +168,33 @@ public class GraphRelationExtractor {
                     objectName,
                     table);
         }
+
+for (SubprogramNode subprogram : subprograms) {
+
+    for (String call : subprogram.getCalls()) {
+
+        relations.add(
+
+                new KnowledgeRelation(
+
+                        subprogram.getQualifiedName(),
+
+                        "CALLS",
+
+                        objectName + "." + call
+                )
+        );
+
+        log.debug(
+                "CALL DETECTED >>> {} -> {}",
+                subprogram.getQualifiedName(),
+                call
+        );
+    }
+}
+
+
+
 
         // =============================================
         // TRIGGER TARGET

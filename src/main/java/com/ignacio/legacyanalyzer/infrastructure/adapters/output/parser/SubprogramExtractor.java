@@ -6,237 +6,168 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
+import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
 
 public class SubprogramExtractor {
 
-    private static final Pattern PROCEDURE_PATTERN =
-            Pattern.compile(
-                    "(?is)PROCEDURE\\s+([A-Z0-9_]+).*?END\\s+\\1\\s*;"
-            );
+        private static final Pattern PROCEDURE_PATTERN =
+                        Pattern.compile("(?is)PROCEDURE\\s+([A-Z0-9_]+).*?END\\s+\\1\\s*;");
 
-    private static final Pattern FUNCTION_PATTERN =
-            Pattern.compile(
-                    "(?is)FUNCTION\\s+([A-Z0-9_]+).*?END\\s+\\1\\s*;"
-            );
+        private static final Pattern FUNCTION_PATTERN =
+                        Pattern.compile("(?is)FUNCTION\\s+([A-Z0-9_]+).*?END\\s+\\1\\s*;");
 
-    public List<SubprogramNode> extract(
-            String sourceCode,
-            String packageName
-    ) {
+        private final SqlSemanticExtractor semanticExtractor = new SqlSemanticExtractor();
 
-        List<SubprogramNode> result =
-                new ArrayList<>();
+        public List<SubprogramNode> extract(String sourceCode, String packageName) {
 
-        extractProcedures(
-                sourceCode,
-                packageName,
-                result
-        );
+                List<SubprogramNode> result = new ArrayList<>();
 
-        extractFunctions(
-                sourceCode,
-                packageName,
-                result
-        );
+                Set<String> knownSubprograms = extractKnownSubprograms(sourceCode);
 
-        return result;
-    }
+                extractProcedures(sourceCode, packageName, result, knownSubprograms);
 
-    private void extractProcedures(
-            String sourceCode,
-            String packageName,
-            List<SubprogramNode> result
-    ) {
+                extractFunctions(sourceCode, packageName, result, knownSubprograms);
 
-        Matcher matcher =
-                PROCEDURE_PATTERN.matcher(
-                        sourceCode
-                );
-
-        while (matcher.find()) {
-
-            String body =
-                    matcher.group();
-
-            String procedureName =
-                    matcher.group(1);
-
-            SubprogramNode node =
-                    new SubprogramNode();
-
-            node.setName(
-                    procedureName
-            );
-
-            node.setQualifiedName(
-                    packageName + "." + procedureName
-            );
-
-            node.setType(
-                    "PROCEDURE"
-            );
-
-            node.setBody(
-                    body
-            );
-
-            node.setReads(
-                    extractReads(body)
-            );
-
-            node.setWrites(
-                    extractWrites(body)
-            );
-
-            node.setCalls(
-                    extractCalls(body)
-            );
-
-            result.add(node);
-        }
-    }
-
-    private void extractFunctions(
-            String sourceCode,
-            String packageName,
-            List<SubprogramNode> result
-    ) {
-
-        Matcher matcher =
-                FUNCTION_PATTERN.matcher(
-                        sourceCode
-                );
-
-        while (matcher.find()) {
-
-            String body =
-                    matcher.group();
-
-            String functionName =
-                    matcher.group(1);
-
-            SubprogramNode node =
-                    new SubprogramNode();
-
-            node.setName(
-                    functionName
-            );
-
-            node.setQualifiedName(
-                    packageName + "." + functionName
-            );
-
-            node.setType(
-                    "FUNCTION"
-            );
-
-            node.setBody(
-                    body
-            );
-
-            node.setReads(
-                    extractReads(body)
-            );
-
-            node.setWrites(
-                    extractWrites(body)
-            );
-
-            node.setCalls(
-                    extractCalls(body)
-            );
-
-            result.add(node);
-        }
-    }
-
-    private List<String> extractReads(String body) {
-
-        Set<String> reads =
-                new HashSet<>();
-
-        Pattern pattern =
-                Pattern.compile(
-                        "\\bFROM\\s+(\\w+)",
-                        Pattern.CASE_INSENSITIVE
-                );
-
-        Matcher matcher =
-                pattern.matcher(body);
-
-        while (matcher.find()) {
-
-            reads.add(
-                    matcher.group(1).toUpperCase()
-            );
+                return result;
         }
 
-        return reads.stream().toList();
-    }
+        private void extractProcedures(String sourceCode, String packageName,
+                        List<SubprogramNode> result, Set<String> knownSubprograms) {
 
-    private List<String> extractWrites(String body) {
+                Matcher matcher = PROCEDURE_PATTERN.matcher(sourceCode);
 
-        Set<String> writes =
-                new HashSet<>();
+                while (matcher.find()) {
 
-        Pattern updatePattern =
-                Pattern.compile(
-                        "\\bUPDATE\\s+(\\w+)",
-                        Pattern.CASE_INSENSITIVE
-                );
+                        String body = matcher.group();
 
-        Pattern insertPattern =
-                Pattern.compile(
-                        "\\bINSERT\\s+INTO\\s+(\\w+)",
-                        Pattern.CASE_INSENSITIVE
-                );
+                        String procedureName = matcher.group(1);
 
-        Matcher updateMatcher =
-                updatePattern.matcher(body);
+                        SubprogramNode node = new SubprogramNode();
 
-        while (updateMatcher.find()) {
+                        node.setName(procedureName);
 
-            writes.add(
-                    updateMatcher.group(1).toUpperCase()
-            );
+                        node.setQualifiedName(packageName + "." + procedureName);
+
+                        node.setType("PROCEDURE");
+
+                        node.setBody(body);
+
+                        // =============================================
+                        // SEMANTIC SQL EXTRACTION
+                        // =============================================
+
+                        node.setReads(semanticExtractor.extractReadTables(body));
+
+                        node.setWrites(semanticExtractor.extractWriteTables(body));
+
+                        // =============================================
+                        // PROCEDURAL CALL GRAPH
+                        // Modificado a ArrayList mutable para evitar el UnsupportedOperationException
+                        // =============================================
+
+                        node.setCalls(new ArrayList<>(extractCalls(body, knownSubprograms, procedureName)));
+
+                        result.add(node);
+                }
         }
 
-        Matcher insertMatcher =
-                insertPattern.matcher(body);
+        private void extractFunctions(String sourceCode, String packageName,
+                        List<SubprogramNode> result, Set<String> knownSubprograms) {
 
-        while (insertMatcher.find()) {
+                Matcher matcher = FUNCTION_PATTERN.matcher(sourceCode);
 
-            writes.add(
-                    insertMatcher.group(1).toUpperCase()
-            );
+                while (matcher.find()) {
+
+                        String body = matcher.group();
+
+                        String functionName = matcher.group(1);
+
+                        SubprogramNode node = new SubprogramNode();
+
+                        node.setName(functionName);
+
+                        node.setQualifiedName(packageName + "." + functionName);
+
+                        node.setType("FUNCTION");
+
+                        node.setBody(body);
+
+                        // =============================================
+                        // SEMANTIC SQL EXTRACTION
+                        // =============================================
+
+                        node.setReads(semanticExtractor.extractReadTables(body));
+
+                        node.setWrites(semanticExtractor.extractWriteTables(body));
+
+                        // =============================================
+                        // PROCEDURAL CALL GRAPH (Sintaxis Arreglada)
+                        // Modificado a ArrayList mutable usando functionName
+                        // =============================================
+                        
+                        node.setCalls(new ArrayList<>(extractCalls(body, knownSubprograms, functionName)));
+
+                        result.add(node);
+                }
         }
 
-        return writes.stream().toList();
-    }
 
-    private List<String> extractCalls(String body) {
+        private Set<String> extractKnownSubprograms(String sourceCode) {
 
-        Set<String> calls =
-                new HashSet<>();
+                Set<String> knownSubprograms = new HashSet<>();
 
-        Pattern pattern =
-                Pattern.compile(
-                        "(\\w+)\\.(\\w+)\\s*\\(",
-                        Pattern.CASE_INSENSITIVE
-                );
+                Matcher procedureMatcher = PROCEDURE_PATTERN.matcher(sourceCode);
 
-        Matcher matcher =
-                pattern.matcher(body);
+                while (procedureMatcher.find()) {
 
-        while (matcher.find()) {
+                        knownSubprograms.add(procedureMatcher.group(1).toUpperCase());
+                }
 
-            calls.add(
-                    matcher.group(1).toUpperCase()
-            );
+                Matcher functionMatcher = FUNCTION_PATTERN.matcher(sourceCode);
+
+                while (functionMatcher.find()) {
+
+                        knownSubprograms.add(functionMatcher.group(1).toUpperCase());
+                }
+
+                return knownSubprograms;
         }
 
-        return calls.stream().toList();
+        private List<String> extractCalls(String body, Set<String> knownSubprograms,
+                        String currentSubprogram) {
+
+                Set<String> calls = new HashSet<>();
+
+                Pattern pattern = Pattern.compile("(\\w+)\\s*\\(", Pattern.CASE_INSENSITIVE);
+
+                Matcher matcher = pattern.matcher(body);
+
+                while (matcher.find()) {
+
+                        String candidate = matcher.group(1).toUpperCase();
+
+                        // =============================================
+                        // IGNORE SELF CALL
+                        // =============================================
+
+                        if (candidate.equals(currentSubprogram.toUpperCase())) {
+
+                                continue;
+                        }
+
+                        // =============================================
+                        // ONLY VALID KNOWN SUBPROGRAMS
+                        // =============================================
+
+                        if (!knownSubprograms.contains(candidate)) {
+
+                                continue;
+            }
+
+            calls.add(candidate);
+        }
+
+        return new ArrayList<>(calls);
     }
 }

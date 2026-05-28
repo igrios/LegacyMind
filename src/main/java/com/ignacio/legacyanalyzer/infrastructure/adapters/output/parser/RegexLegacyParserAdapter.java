@@ -126,6 +126,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         List<SubprogramNode> subprograms = subprogramExtractor.extract(sourceCode, name);
 
+     //   detectSubprogramCalls(subprograms);
+
         log.debug("SUBPROGRAMS >>> {}", subprograms.size());
 
         log.debug("FROM CLAUSE >>> {}", extractTopLevelFromClause(sql));
@@ -158,7 +160,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // KNOWLEDGE RELATIONS
         // =============================
         List<KnowledgeRelation> knowledgeRelations =
-                graphRelationExtractor.extractKnowledgeRelations(sourceCode, name);
+                graphRelationExtractor.extractKnowledgeRelations(sourceCode, name, subprograms);
 
         // =============================
         // CURSOR METADATA
@@ -243,7 +245,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                 String target = clean(updateMatcher.group(1));
 
-                if (isValidTable(target) && mainTable != null && !target.equals(mainTable)) {
+                if (semanticExtractor.isValidTable(target) && mainTable != null && !target.equals(mainTable)) {
 
                     relations.add(mainTable + "->" + target);
                 }
@@ -259,7 +261,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
                 String target = clean(insertMatcher.group(1));
 
-                if (isValidTable(target)) {
+                if (semanticExtractor.isValidTable(target)) {
 
                     String fromClause = extractTopLevelFromClause(stmt);
 
@@ -298,7 +300,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                                                                                                // real,
                                                                                                // ej:
                                                                                                // "PRODUCTOS"
-                        .map(this::clean).filter(this::isValidTable).distinct().toList();
+                        .map(this::clean).filter(semanticExtractor::isValidTable).distinct().toList();
 
                 log.debug("REAL TABLES FOR COUPLING >>> {}", realTables);
 
@@ -336,7 +338,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
             String table = clean(updateMatcher.group(1));
 
-            if (isValidTable(table)) {
+            if (semanticExtractor.isValidTable(table)) {
                 return table;
             }
         }
@@ -475,7 +477,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             if (ref.getFullName() != null) {
                 String table = clean(ref.getFullName().toUpperCase());
 
-                if (isValidTable(table)) {
+                if (semanticExtractor.isValidTable(table)) {
                     tables.add(table);
                     log.debug("EXTRACTED REAL TABLE FROM REF >>> {}", table);
                 }
@@ -769,7 +771,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     }
 
 
-
+/*
     private boolean isValidTable(String table) {
 
         if (table == null || table.isBlank()) {
@@ -777,33 +779,76 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             return false;
         }
 
-        table = table.toUpperCase();
+        table = table.trim().toUpperCase();
 
-        if (Set.of("SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
-                "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER",
-                "BY", "BEGIN", "END", "NULL").contains(table)) {
+        // =============================================
+        // BASIC HARDENING
+        // =============================================
+
+        if (table.length() <= 2) {
 
             return false;
         }
 
+        // =============================================
+        // SQL / NOISE BLACKLIST
+        // =============================================
+
+        Set<String> blackList = Set.of(
+
+                "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
+                "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER",
+                "BY", "BEGIN", "END", "NULL", "LOOP", "FOR", "IN", "EXCEPTION", "WHEN", "OTHERS",
+                "IS", "AS", "DE", "COMENTARIO", "INSERTAR", "ACTUALIZAR", "ESCRITURA", "TABLA");
+
+        if (blackList.contains(table)) {
+
+            return false;
+        }
+
+        // =============================================
+        // ENTERPRISE TABLE PATTERN
+        // Supports:
         // CLIENTES
-        if (table.matches("[A-Z][A-Z0-9_#$@]*")) {
-
-            return true;
-        }
-
+        // STOCK_DEPOSITO
+        // ERP.PEDIDOS
         // CRM.CLIENTES
-        if (table.matches("[A-Z][A-Z0-9_#$@]*\\.[A-Z][A-Z0-9_#$@]*")) {
+        // =============================================
 
-            return true;
-        }
+        return table.matches(
 
-        return false;
-    }
+                "[A-Z][A-Z0-9_#$@]*" + "(\\.[A-Z][A-Z0-9_#$@]*)?");
+    }*/
 
     private String clean(String table) {
 
         return table.replaceAll("[^A-Z0-9_.$#@]", "");
+    }
+
+    private void detectSubprogramCalls(List<SubprogramNode> subprograms) {
+
+        for (SubprogramNode source : subprograms) {
+
+            String body = source.getBody();
+
+            if (body == null) {
+                continue;
+            }
+
+            for (SubprogramNode candidate : subprograms) {
+
+                if (source == candidate) {
+                    continue;
+                }
+
+                String candidateName = candidate.getName();
+
+                if (body.contains(candidateName + "(")) {
+
+                    source.getCalls().add(candidateName);
+                }
+            }
+        }
     }
 
 }
