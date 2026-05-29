@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
+import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
 import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
@@ -22,6 +23,7 @@ import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
 import com.ignacio.legacyanalyzer.domain.services.CursorSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.ExceptionSemanticExtractor;
 import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
 import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
 import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
@@ -167,6 +169,13 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         // =============================
 
         List<CursorMetadata> cursors = cursorSemanticExtractor.extractCursors(normalized);
+
+        ExceptionSemanticExtractor exceptionExtractor =
+        new ExceptionSemanticExtractor();
+
+List<ExceptionMetadata> exceptions = exceptionExtractor.extract(normalized);
+
+log.info("EXCEPTIONS DETECTED >>> {}", exceptions);
 
         log.debug("CURSORS DETECTED >>> {}", cursors);
         log.info("CURSORS DETECTED >>> {}", cursors);
