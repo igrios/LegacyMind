@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
+import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
 import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
 import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
@@ -22,6 +23,7 @@ import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
+import com.ignacio.legacyanalyzer.domain.services.BusinessRuleExtractor;
 import com.ignacio.legacyanalyzer.domain.services.CursorSemanticExtractor;
 import com.ignacio.legacyanalyzer.domain.services.ExceptionSemanticExtractor;
 import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
@@ -83,6 +85,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         String sql = normalized.replaceAll("\\b[A-Z_]+\\s*\\([^()]*\\)", " ");
 
+        
+
         // =============================
         // NAME + TYPE
         // =============================
@@ -128,7 +132,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         List<SubprogramNode> subprograms = subprogramExtractor.extract(sourceCode, name);
 
-     //   detectSubprogramCalls(subprograms);
+        // detectSubprogramCalls(subprograms);
 
         log.debug("SUBPROGRAMS >>> {}", subprograms.size());
 
@@ -170,12 +174,22 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         List<CursorMetadata> cursors = cursorSemanticExtractor.extractCursors(normalized);
 
-        ExceptionSemanticExtractor exceptionExtractor =
-        new ExceptionSemanticExtractor();
+        ExceptionSemanticExtractor exceptionExtractor = new ExceptionSemanticExtractor();
 
-List<ExceptionMetadata> exceptions = exceptionExtractor.extract(normalized);
+        List<ExceptionMetadata> exceptions = exceptionExtractor.extract(normalized);
 
-log.info("EXCEPTIONS DETECTED >>> {}", exceptions);
+        // Business rules require original literals.
+        // Do NOT use preProcess() because it strips
+        // RAISE_APPLICATION_ERROR messages.
+        BusinessRuleExtractor businessRuleExtractor = new BusinessRuleExtractor();
+
+        List<BusinessRuleMetadata> businessRules = businessRuleExtractor.extract(sourceCode);
+
+        log.info("BUSINESS RULES DETECTED >>> {}", businessRules);
+
+        log.info("BUSINESS RULES DETECTED >>> {}", businessRules);
+
+        log.info("EXCEPTIONS DETECTED >>> {}", exceptions);
 
         log.debug("CURSORS DETECTED >>> {}", cursors);
         log.info("CURSORS DETECTED >>> {}", cursors);
@@ -254,7 +268,8 @@ log.info("EXCEPTIONS DETECTED >>> {}", exceptions);
 
                 String target = clean(updateMatcher.group(1));
 
-                if (semanticExtractor.isValidTable(target) && mainTable != null && !target.equals(mainTable)) {
+                if (semanticExtractor.isValidTable(target) && mainTable != null
+                        && !target.equals(mainTable)) {
 
                     relations.add(mainTable + "->" + target);
                 }
@@ -309,7 +324,8 @@ log.info("EXCEPTIONS DETECTED >>> {}", exceptions);
                                                                                                // real,
                                                                                                // ej:
                                                                                                // "PRODUCTOS"
-                        .map(this::clean).filter(semanticExtractor::isValidTable).distinct().toList();
+                        .map(this::clean).filter(semanticExtractor::isValidTable).distinct()
+                        .toList();
 
                 log.debug("REAL TABLES FOR COUPLING >>> {}", realTables);
 
@@ -780,54 +796,44 @@ log.info("EXCEPTIONS DETECTED >>> {}", exceptions);
     }
 
 
-/*
-    private boolean isValidTable(String table) {
-
-        if (table == null || table.isBlank()) {
-
-            return false;
-        }
-
-        table = table.trim().toUpperCase();
-
-        // =============================================
-        // BASIC HARDENING
-        // =============================================
-
-        if (table.length() <= 2) {
-
-            return false;
-        }
-
-        // =============================================
-        // SQL / NOISE BLACKLIST
-        // =============================================
-
-        Set<String> blackList = Set.of(
-
-                "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
-                "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER",
-                "BY", "BEGIN", "END", "NULL", "LOOP", "FOR", "IN", "EXCEPTION", "WHEN", "OTHERS",
-                "IS", "AS", "DE", "COMENTARIO", "INSERTAR", "ACTUALIZAR", "ESCRITURA", "TABLA");
-
-        if (blackList.contains(table)) {
-
-            return false;
-        }
-
-        // =============================================
-        // ENTERPRISE TABLE PATTERN
-        // Supports:
-        // CLIENTES
-        // STOCK_DEPOSITO
-        // ERP.PEDIDOS
-        // CRM.CLIENTES
-        // =============================================
-
-        return table.matches(
-
-                "[A-Z][A-Z0-9_#$@]*" + "(\\.[A-Z][A-Z0-9_#$@]*)?");
-    }*/
+    /*
+     * private boolean isValidTable(String table) {
+     * 
+     * if (table == null || table.isBlank()) {
+     * 
+     * return false; }
+     * 
+     * table = table.trim().toUpperCase();
+     * 
+     * // ============================================= // BASIC HARDENING //
+     * =============================================
+     * 
+     * if (table.length() <= 2) {
+     * 
+     * return false; }
+     * 
+     * // ============================================= // SQL / NOISE BLACKLIST //
+     * =============================================
+     * 
+     * Set<String> blackList = Set.of(
+     * 
+     * "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "JOIN",
+     * "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY", "BEGIN", "END",
+     * "NULL", "LOOP", "FOR", "IN", "EXCEPTION", "WHEN", "OTHERS", "IS", "AS", "DE", "COMENTARIO",
+     * "INSERTAR", "ACTUALIZAR", "ESCRITURA", "TABLA");
+     * 
+     * if (blackList.contains(table)) {
+     * 
+     * return false; }
+     * 
+     * // ============================================= // ENTERPRISE TABLE PATTERN // Supports: //
+     * CLIENTES // STOCK_DEPOSITO // ERP.PEDIDOS // CRM.CLIENTES //
+     * =============================================
+     * 
+     * return table.matches(
+     * 
+     * "[A-Z][A-Z0-9_#$@]*" + "(\\.[A-Z][A-Z0-9_#$@]*)?"); }
+     */
 
     private String clean(String table) {
 
