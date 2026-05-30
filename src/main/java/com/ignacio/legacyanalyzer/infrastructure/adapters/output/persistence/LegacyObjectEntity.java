@@ -2,6 +2,7 @@ package com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.BusinessRuleEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.CursorMetadataEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.SubprogramNodeEntity;
 import jakarta.persistence.CascadeType;
@@ -58,7 +59,11 @@ private List<CursorMetadataEntity> cursors;
 @JoinColumn(name = "legacy_object_id")
 private List<SubprogramNodeEntity> subprograms;
 
-
+@OneToMany(
+        cascade = CascadeType.ALL,
+        orphanRemoval = true)
+@JoinColumn(name = "legacy_object_id")
+private List<BusinessRuleEntity> businessRules;
 
 
     public LegacyObjectEntity() {
@@ -75,6 +80,7 @@ private List<SubprogramNodeEntity> subprograms;
             String riskLevel,
             String functionalSummary,
             List<CursorMetadataEntity> cursors,
+            List<BusinessRuleEntity> businessRules,
             List<SubprogramNodeEntity> subprograms,
             LocalDateTime createdAt  ){
 
@@ -90,7 +96,9 @@ private List<SubprogramNodeEntity> subprograms;
         this.createdAt = createdAt;
         this.functionalSummary = functionalSummary;
         this.cursors = cursors;
+        this.businessRules = businessRules;
         this.subprograms = subprograms;
+        
    }
 
 public String getId() {
@@ -153,6 +161,18 @@ public void setSubprograms(
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
+
+public List<BusinessRuleEntity> getBusinessRules() {
+
+    return businessRules;
+}
+
+public void setBusinessRules(
+        List<BusinessRuleEntity> businessRules) {
+
+    this.businessRules = businessRules;
+}
+
 
 
 }

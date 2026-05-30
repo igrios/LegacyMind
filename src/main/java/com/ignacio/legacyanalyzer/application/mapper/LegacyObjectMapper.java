@@ -5,12 +5,16 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
+import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.BusinessRuleEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.CursorMetadataEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.SubprogramNodeEntity;
+
+
 
 public class LegacyObjectMapper {
 
@@ -21,8 +25,8 @@ public class LegacyObjectMapper {
                 // =========================================
 
                 List<CursorMetadataEntity> cursorEntities = mapCursors(object.getCursors());
-                List<SubprogramNodeEntity> subprogramEntities =
-                                mapSubprograms(object.getSubprograms());
+                List<SubprogramNodeEntity> subprogramEntities = mapSubprograms(object.getSubprograms());
+               List<BusinessRuleEntity> businessRuleEntities =  mapBusinessRules(object.getBusinessRules());
                 // =========================================
                 // CREATE PARENT ENTITY
                 // =========================================
@@ -50,6 +54,8 @@ public class LegacyObjectMapper {
                                 object.getFunctionalSummary(),
 
                                 cursorEntities,
+
+                                businessRuleEntities,
 
                                 subprogramEntities,
 
@@ -186,6 +192,27 @@ public class LegacyObjectMapper {
                                 .toList();
         }
 
+private List<BusinessRuleEntity> mapBusinessRules(List<BusinessRuleMetadata> businessRules) {
 
+    if (businessRules == null) {
+        return List.of();
+    }
+
+    return businessRules.stream()
+
+            .map(rule -> {
+
+                BusinessRuleEntity entity =
+                        new BusinessRuleEntity();
+
+                entity.setErrorCode(rule.errorCode());
+
+                entity.setMessage(rule.message());
+
+                return entity;
+            })
+
+            .toList();
+}
 
 }

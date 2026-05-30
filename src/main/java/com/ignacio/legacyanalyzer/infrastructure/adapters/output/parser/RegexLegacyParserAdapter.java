@@ -220,6 +220,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 subprograms,
 
                 cursors,
+                
+                businessRules,
 
                 knowledgeRelations,
 

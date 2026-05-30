@@ -30,6 +30,8 @@ public class LegacyObject {
 
     private List<CursorMetadata> cursors;
 
+    private List<BusinessRuleMetadata> businessRules;
+
     public LegacyObject(
 
             String id,
@@ -45,6 +47,8 @@ public class LegacyObject {
             List<SubprogramNode> subprograms,
 
             List<CursorMetadata> cursors,
+            
+            List<BusinessRuleMetadata> businessRules,
 
             List<KnowledgeRelation> knowledgeRelations,
 
@@ -72,6 +76,8 @@ public class LegacyObject {
 
         this.cursors = cursors;
 
+        this.businessRules = businessRules;
+
         this.knowledgeRelations = knowledgeRelations;
 
         this.sourceCode = sourceCode;
@@ -81,6 +87,8 @@ public class LegacyObject {
         this.riskScore = riskScore;
 
         this.riskLevel = riskLevel;
+
+
 
         this.functionalSummary = functionalSummary;
     }
@@ -140,8 +148,7 @@ public class LegacyObject {
         return subprograms;
     }
 
-    public void setSubprograms(
-            List<SubprogramNode> subprograms) {
+    public void setSubprograms(List<SubprogramNode> subprograms) {
 
         this.subprograms = subprograms;
     }
@@ -155,4 +162,9 @@ public class LegacyObject {
 
         return cursors;
     }
+
+    public List<BusinessRuleMetadata> getBusinessRules() {
+
+    return businessRules;
+}
 }
