@@ -25,8 +25,10 @@ public class LegacyObjectMapper {
                 // =========================================
 
                 List<CursorMetadataEntity> cursorEntities = mapCursors(object.getCursors());
-                List<SubprogramNodeEntity> subprogramEntities = mapSubprograms(object.getSubprograms());
-               List<BusinessRuleEntity> businessRuleEntities =  mapBusinessRules(object.getBusinessRules());
+                List<SubprogramNodeEntity> subprogramEntities =
+                                mapSubprograms(object.getSubprograms());
+                List<BusinessRuleEntity> businessRuleEntities =
+                                mapBusinessRules(object.getBusinessRules());
                 // =========================================
                 // CREATE PARENT ENTITY
                 // =========================================
@@ -99,11 +101,12 @@ public class LegacyObjectMapper {
 
                                 object.getSubprograms(),
 
+                                object.getBusinessRules(),
+
                                 object.getKnowledgeRelations());
         }
 
         public AnalyzeLegacyResponse toResponse(LegacyObjectEntity entity) {
-
                 return new AnalyzeLegacyResponse(
 
                                 entity.getName(),
@@ -126,8 +129,12 @@ public class LegacyObjectMapper {
 
                                 List.of(),
 
+                                mapBusinessRulesToMetadata(entity.getBusinessRules()),
+
                                 List.of());
+
         }
+
 
         private List<String> split(String value) {
 
@@ -192,27 +199,49 @@ public class LegacyObjectMapper {
                                 .toList();
         }
 
-private List<BusinessRuleEntity> mapBusinessRules(List<BusinessRuleMetadata> businessRules) {
+        private List<BusinessRuleEntity> mapBusinessRules(
+                        List<BusinessRuleMetadata> businessRules) {
 
-    if (businessRules == null) {
-        return List.of();
-    }
+                if (businessRules == null) {
+                        return List.of();
+                }
 
-    return businessRules.stream()
+                return businessRules.stream()
 
-            .map(rule -> {
+                                .map(rule -> {
 
-                BusinessRuleEntity entity =
-                        new BusinessRuleEntity();
+                                        BusinessRuleEntity entity = new BusinessRuleEntity();
 
-                entity.setErrorCode(rule.errorCode());
+                                        entity.setErrorCode(rule.errorCode());
 
-                entity.setMessage(rule.message());
+                                        entity.setMessage(rule.message());
 
-                return entity;
-            })
+                                        return entity;
+                                })
 
-            .toList();
-}
+                                .toList();
+        }
+
+        private List<BusinessRuleMetadata> mapBusinessRulesToMetadata(
+                        List<BusinessRuleEntity> businessRules) {
+
+                if (businessRules == null) {
+
+                        return List.of();
+                }
+
+                return businessRules.stream()
+
+                                .map(rule ->
+
+                                new BusinessRuleMetadata(
+
+                                                rule.getErrorCode(),
+
+                                                rule.getMessage()))
+
+                                .toList();
+        }
+
 
 }

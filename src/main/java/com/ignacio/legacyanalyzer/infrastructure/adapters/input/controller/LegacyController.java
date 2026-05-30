@@ -135,6 +135,8 @@ public class LegacyController {
 
                                 object.getSubprograms(),
 
+                                object.getBusinessRules(),
+
                                 object.getKnowledgeRelations());
         }
 
@@ -167,9 +169,11 @@ public class LegacyController {
                                                 ? entity.getFunctionalSummary()
                                                 : "No summary available",
 
-                                List.of(),
+                                List.of(), // subprograms
 
-                                List.of()
+                                List.of(), // businessRules
+
+                                List.of() // knowledgeRelations
 
                 )).toList();
         }
