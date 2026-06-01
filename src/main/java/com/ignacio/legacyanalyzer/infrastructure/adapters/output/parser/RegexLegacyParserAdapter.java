@@ -79,6 +79,13 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     @Override
     public LegacyObject parse(String sourceCode) {
 
+        if (sourceCode == null || sourceCode.isBlank()) {
+
+        throw new IllegalArgumentException(
+                "Source code cannot be null or empty");
+    }
+
+
         String cleanSource = preProcess(sourceCode);
 
         String normalized = normalizeSql(cleanSource);
@@ -785,17 +792,18 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
     // =============================
     private String preProcess(String source) {
 
-        // remove block comments
-        source = source.replaceAll("/\\*.*?\\*/", " ");
-
-        // remove line comments
-        source = source.replaceAll("--.*?(\\r?\\n)", " ");
-
-        // replace string literals
-        source = source.replaceAll("'(?:''|[^'])*'", "''");
-
-        return source;
+    if (source == null) {
+        return "";
     }
+
+    source = source.replaceAll("/\\*.*?\\*/", " ");
+
+    source = source.replaceAll("--.*?(\\r?\\n)", " ");
+
+    source = source.replaceAll("'(?:''|[^'])*'", "''");
+
+    return source;
+}
 
 
     /*

@@ -9,6 +9,9 @@ function App() {
   const [edges, setEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
 
+  // Base URL unificada del backend para evitar pegar a producción en local
+  const API_BASE_URL = process.env.REACT_APP_API_URL || "https://legacymind-api.onrender.com/api/legacy";
+
   // =====================================================
   // LOAD GRAPH
   // =====================================================
@@ -17,8 +20,10 @@ function App() {
       const res = await getKnowledgeGraph();
       console.log("GRAPH:", res.data);
 
+      if (!res.data || !res.data.nodes) return;
+
       // Edges
-      const flowEdges = res.data.edges.map((edge, index) => ({
+      const flowEdges = (res.data.edges || []).map((edge, index) => ({
         id: `edge-${index}`,
         source: edge.source,
         target: edge.target,
@@ -64,7 +69,7 @@ function App() {
           width = 320;
           height = 95;
           fontSize = "20px";
-          glow = "0 0 30px rgba(239,68,68,0.8)"; // Red glowing for highly coupled nodes
+          glow = "0 0 30px rgba(239,68,68,0.8)"; // Red glowing
         } else if (degree >= 3) {
           width = 250;
           height = 75;
@@ -93,7 +98,8 @@ function App() {
             fontWeight: "bold",
             fontSize,
             boxShadow: glow,
-            transition: "all 0.3s ease"
+            transition: "all 0.3s ease",
+            cursor: "pointer"
           }
         };
       });
@@ -113,13 +119,12 @@ function App() {
     if (!confirmed) return;
 
     try {
-      // ✅ ARREGLADO: URL limpia y formateada sin código duplicado
-      const response = await fetch("https://legacymind-api.onrender.com/api/legacy/database", {
+      const response = await fetch(`${API_BASE_URL}/database`, {
         method: "DELETE"
       });
-     
+
       if (!response.ok) {
-        throw new Error("Error cleaning databasesssss");
+        throw new Error("Error cleaning database");
       }
 
       alert("Base limpiada correctamente");
@@ -135,18 +140,16 @@ function App() {
   // =====================================================
   // NODE CLICK HANDLER
   // =====================================================
-  const handleNodeClick = (nodeId) => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return;
+  const handleNodeClick = async (nodeId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/object/${nodeId}`);
+      if (!response.ok) throw new Error("Error fetching object details");
 
-    const relatedEdges = edges.filter(
-      edge => edge.source === nodeId || edge.target === nodeId
-    );
-
-    setSelectedNode({
-      ...node,
-      relatedEdges
-    });
+      const details = await response.json();
+      setSelectedNode(details);
+    } catch (error) {
+      console.error("Error loading node details:", error);
+    }
   };
 
   // =====================================================
@@ -175,8 +178,8 @@ function App() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "42px", marginBottom: "6px" }}>LegacyMind</h1>
-          <p style={{ color: "#94a3b8" }}>AI-Powered Oracle Legacy Analyzer</p>
+          <h1 style={{ fontSize: "38px", marginBottom: "6px", fontWeight: "800" }}>LegacyMind</h1>
+          <p style={{ color: "#94a3b8", fontSize: "13px" }}>AI-Powered Oracle Legacy Analyzer</p>
         </div>
 
         <hr style={{ borderColor: "#1f2937", width: "100%" }} />
@@ -206,15 +209,16 @@ function App() {
         {/* STATS PANEL */}
         <div
           style={{
-            marginTop: "30px",
+            marginTop: "auto",
             background: "#0f172a",
             borderRadius: "16px",
-            padding: "18px"
+            padding: "18px",
+            border: "1px solid #1f2937"
           }}
         >
-          <h3>System Stats</h3>
-          <p>Nodes: {nodes.length}</p>
-          <p>Relations: {edges.length}</p>
+          <h3 style={{ fontSize: "16px", marginBottom: "8px" }}>System Stats</h3>
+          <p style={{ fontSize: "14px", margin: "4px 0" }}>Nodes: {nodes.length}</p>
+          <p style={{ fontSize: "14px", margin: "4px 0" }}>Relations: {edges.length}</p>
         </div>
       </div>
 
@@ -227,26 +231,30 @@ function App() {
         )}
       </div>
 
-      {/* RIGHT METRICS PANEL */}
+      {/* RIGHT METRICS PANEL (Unificado y blindado de crasheos) */}
       {selectedNode && (
         <div
           style={{
-            width: "320px",
+            width: "340px",
             background: "#111827",
             borderLeft: "1px solid #1f2937",
             padding: "22px",
-            overflow: "auto"
+            overflow: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: "20px"
           }}
         >
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "20px"
+              alignItems: "center"
             }}
           >
-            <h2 style={{ fontSize: "24px" }}>{selectedNode.data.label}</h2>
+            <h2 style={{ fontSize: "20px", wordBreak: "break-all", marginRight: "10px" }}>
+              {selectedNode.name}
+            </h2>
             <button
               onClick={() => setSelectedNode(null)}
               style={{
@@ -263,29 +271,57 @@ function App() {
             </button>
           </div>
 
-          <p><strong>Type:</strong> {selectedNode.data.nodeType}</p>
-          <p><strong>Criticality:</strong> {selectedNode.data.degree}</p>
-          <p><strong>Relations:</strong> {selectedNode.relatedEdges.length}</p>
+          <div style={{ fontSize: "14px", display: "flex", flexDirection: "column", gap: "6px" }}>
+            <p><strong>Type:</strong> {selectedNode.type}</p>
+            <p><strong>Risk Level:</strong> {selectedNode.riskLevel || "LOW"}</p>
+            <p><strong>Risk Score:</strong> {selectedNode.riskScore || 0}</p>
+          </div>
 
-          <hr style={{ marginTop: "20px", marginBottom: "20px", borderColor: "#1f2937" }} />
-
-          <h3 style={{ marginBottom: "15px" }}>Connected Relations</h3>
-
-          {selectedNode.relatedEdges.map((edge, index) => (
-            <div
-              key={index}
-              style={{
-                background: "#0f172a",
-                borderRadius: "14px",
-                padding: "14px",
-                marginBottom: "12px"
-              }}
-            >
-              <strong>{edge.relation}</strong>
-              <br />
-              {`${edge.source} → ${edge.target}`}
+          {/* BUSINESS RULES */}
+          {selectedNode.businessRules?.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: "16px", marginBottom: "10px", color: "#38bdf8" }}>Business Rules</h3>
+              {selectedNode.businessRules.map(rule => (
+                <div
+                  key={rule.errorCode}
+                  style={{
+                    background: "#0f172a",
+                    borderRadius: "12px",
+                    padding: "12px",
+                    marginBottom: "10px",
+                    border: "1px solid #1f2937"
+                  }}
+                >
+                  <strong style={{ color: "#f43f5e" }}>{rule.errorCode}</strong>
+                  <p style={{ fontSize: "13px", marginTop: "4px", color: "#cbd5e1" }}>{rule.message}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {/* REFERENCED TABLES */}
+          {selectedNode.referencedTables?.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: "16px", marginBottom: "10px", color: "#38bdf8" }}>Referenced Tables</h3>
+              <ul style={{ paddingLeft: "20px", fontSize: "14px", color: "#cbd5e1" }}>
+                {selectedNode.referencedTables.map(table => (
+                  <li key={table} style={{ marginBottom: "4px" }}>{table}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* CODE SMELLS (Se movió ADENTRO del bloque seguro para que no rompa) */}
+          {selectedNode.codeSmells?.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: "16px", marginBottom: "10px", color: "#38bdf8" }}>Code Smells</h3>
+              <ul style={{ paddingLeft: "20px", fontSize: "14px", color: "#f43f5e" }}>
+                {selectedNode.codeSmells.map(smell => (
+                  <li key={smell} style={{ marginBottom: "6px" }}>{smell}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -305,7 +341,7 @@ function buttonStyle(background) {
     cursor: "pointer",
     fontWeight: "bold",
     fontSize: "15px",
-    transition: "background 0.2s ease"
+    transition: "all 0.2s ease"
   };
 }
 

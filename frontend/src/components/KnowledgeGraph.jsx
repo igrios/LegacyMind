@@ -7,11 +7,13 @@ import ReactFlow, {
 } from "reactflow";
 
 import "reactflow/dist/style.css";
+import SidePanel from "./SidePanel";
 
 export default function KnowledgeGraph() {
 
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  const [selectedNode, setSelectedNode] = useState(null);
 
   useEffect(() => {
 
@@ -63,6 +65,26 @@ export default function KnowledgeGraph() {
         nodes={nodes}
         edges={edges}
         fitView
+        onNodeClick={async (_, node) => {
+
+          try {
+
+            const response = await fetch(
+              `${process.env.REACT_APP_API_URL}/object/${node.id}`
+            );
+
+            const details = await response.json();
+
+            console.log("DETAILS >>>", details);
+
+            setSelectedNode(details);
+
+          } catch (error) {
+
+            console.error(error);
+          }
+
+        }}
       >
 
         <MiniMap />
@@ -72,6 +94,8 @@ export default function KnowledgeGraph() {
         <Background />
 
       </ReactFlow>
+
+      <SidePanel node={selectedNode} />
 
     </div>
   );

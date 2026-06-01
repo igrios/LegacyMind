@@ -14,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
@@ -116,17 +117,17 @@ class LegacyControllerTest {
         when(analyzerService.buildFromRelations(anyList(), anyString()))
                 .thenReturn(List.<TableDependency>of());
 
-        AnalyzeLegacyResponse response = controller.analyze(request);
+       ResponseEntity<AnalyzeLegacyResponse> response =  controller.analyze(request);
 
         assertNotNull(response);
 
-        assertEquals("TEST_PROC", response.name());
+        assertEquals("TEST_PROC", response.getBody().name());
 
-        assertEquals("PROCEDURE", response.type());
+        assertEquals("PROCEDURE", response.getBody().type());
 
-        assertEquals(1, response.referencedTables().size());
+        assertEquals(1, response.getBody().referencedTables().size());
 
-        assertEquals("USERS", response.referencedTables().get(0));
+        assertEquals("USERS", response.getBody().referencedTables().get(0));
 
         verify(repository).save(any(LegacyObjectEntity.class));
 

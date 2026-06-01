@@ -70,10 +70,19 @@ public class LegacyController {
                 this.deleteDatabaseUseCase = deleteDatabaseUseCase;
         }
 
-        @PostMapping("/analyze")
-        public AnalyzeLegacyResponse analyze(@RequestBody AnalyzeLegacyRequest request) {
+        
+@PostMapping("/analyze")
+public ResponseEntity<AnalyzeLegacyResponse> analyze(
+        @RequestBody AnalyzeLegacyRequest request) {
 
-                LegacyObject object = parserAdapter.parse(request.getSourceCode());
+    if (request.getSourceCode() == null ||
+        request.getSourceCode().isBlank()) {
+
+        return ResponseEntity.badRequest().build();
+    }
+
+    LegacyObject object =
+            parserAdapter.parse(request.getSourceCode());
 
                 object.getKnowledgeRelations().forEach(relation -> {
 
@@ -115,29 +124,21 @@ public class LegacyController {
 
                 repository.save(mapper.toEntity(object));
 
-                return new AnalyzeLegacyResponse(
-
-                                object.getName(),
-
-                                object.getType(),
-
-                                object.getProcedures(),
-
-                                object.getReferencedTables(),
-
-                                object.getCodeSmells(),
-
-                                object.getRiskScore(),
-
-                                object.getRiskLevel(),
-
-                                object.getFunctionalSummary(),
-
-                                object.getSubprograms(),
-
-                                object.getBusinessRules(),
-
-                                object.getKnowledgeRelations());
+               return ResponseEntity.ok(
+        new AnalyzeLegacyResponse(
+                object.getName(),
+                object.getType(),
+                object.getProcedures(),
+                object.getReferencedTables(),
+                object.getCodeSmells(),
+                object.getRiskScore(),
+                object.getRiskLevel(),
+                object.getFunctionalSummary(),
+                object.getSubprograms(),
+                object.getBusinessRules(),
+                object.getKnowledgeRelations()
+        )
+);
         }
 
         @GetMapping("/history")
@@ -242,6 +243,16 @@ public class LegacyController {
                 return ResponseEntity.ok("Database cleaned successfully");
         }
 
+        @GetMapping("/object/{name}")
+        public ResponseEntity<AnalyzeLegacyResponse> getObject(@PathVariable String name) {
 
+                LegacyObjectMapper mapper = new LegacyObjectMapper();
+
+                return repository.findByName(name)
+
+                                .map(entity -> ResponseEntity.ok(mapper.toResponse(entity)))
+
+                                .orElse(ResponseEntity.notFound().build());
+        }
 
 }
