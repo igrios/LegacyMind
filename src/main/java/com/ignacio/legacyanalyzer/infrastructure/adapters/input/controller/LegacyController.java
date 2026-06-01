@@ -21,7 +21,12 @@ import com.ignacio.legacyanalyzer.application.usecase.DeleteDatabaseUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactUseCase;
+import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
+import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
+import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
+import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
+import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
 import com.ignacio.legacyanalyzer.domain.services.DependencyAnalyzerService;
@@ -30,7 +35,6 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLeg
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
-
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -70,19 +74,17 @@ public class LegacyController {
                 this.deleteDatabaseUseCase = deleteDatabaseUseCase;
         }
 
-        
-@PostMapping("/analyze")
-public ResponseEntity<AnalyzeLegacyResponse> analyze(
-        @RequestBody AnalyzeLegacyRequest request) {
 
-    if (request.getSourceCode() == null ||
-        request.getSourceCode().isBlank()) {
+        @PostMapping("/analyze")
+        public ResponseEntity<AnalyzeLegacyResponse> analyze(
+                        @RequestBody AnalyzeLegacyRequest request) {
 
-        return ResponseEntity.badRequest().build();
-    }
+                if (request.getSourceCode() == null || request.getSourceCode().isBlank()) {
 
-    LegacyObject object =
-            parserAdapter.parse(request.getSourceCode());
+                        return ResponseEntity.badRequest().build();
+                }
+
+                LegacyObject object = parserAdapter.parse(request.getSourceCode());
 
                 object.getKnowledgeRelations().forEach(relation -> {
 
@@ -124,21 +126,15 @@ public ResponseEntity<AnalyzeLegacyResponse> analyze(
 
                 repository.save(mapper.toEntity(object));
 
-               return ResponseEntity.ok(
-        new AnalyzeLegacyResponse(
-                object.getName(),
-                object.getType(),
-                object.getProcedures(),
-                object.getReferencedTables(),
-                object.getCodeSmells(),
-                object.getRiskScore(),
-                object.getRiskLevel(),
-                object.getFunctionalSummary(),
-                object.getSubprograms(),
-                object.getBusinessRules(),
-                object.getKnowledgeRelations()
-        )
-);
+                return ResponseEntity.ok(new AnalyzeLegacyResponse(object.getName(),
+                                object.getType(), object.getProcedures(),
+                                object.getReferencedTables(), object.getCodeSmells(),
+                                object.getRiskScore(), object.getRiskLevel(),
+                                object.getFunctionalSummary(), object.getSubprograms(),
+
+                                object.getCursors(), object.getExceptions(),
+
+                                object.getBusinessRules(), object.getKnowledgeRelations()));
         }
 
         @GetMapping("/history")
@@ -170,12 +166,15 @@ public ResponseEntity<AnalyzeLegacyResponse> analyze(
                                                 ? entity.getFunctionalSummary()
                                                 : "No summary available",
 
-                                List.of(), // subprograms
+                                List.<SubprogramNode>of(), // subprograms
 
-                                List.of(), // businessRules
+                                List.<CursorMetadata>of(), // cursors
 
-                                List.of() // knowledgeRelations
+                                List.<ExceptionMetadata>of(), // exceptions
 
+                                List.<BusinessRuleMetadata>of(), // businessRules
+
+                                List.<KnowledgeRelation>of() // knowledgeRelations
                 )).toList();
         }
 

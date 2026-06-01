@@ -32,6 +32,8 @@ public class LegacyObject {
 
     private List<BusinessRuleMetadata> businessRules;
 
+    private List<ExceptionMetadata> exceptions;
+
     public LegacyObject(
 
             String id,
@@ -49,6 +51,8 @@ public class LegacyObject {
             List<CursorMetadata> cursors,
             
             List<BusinessRuleMetadata> businessRules,
+
+            List<ExceptionMetadata> exceptions,
 
             List<KnowledgeRelation> knowledgeRelations,
 
@@ -77,6 +81,8 @@ public class LegacyObject {
         this.cursors = cursors;
 
         this.businessRules = businessRules;
+
+        this.exceptions = exceptions;
 
         this.knowledgeRelations = knowledgeRelations;
 
@@ -167,4 +173,11 @@ public class LegacyObject {
 
     return businessRules;
 }
+
+    public List<ExceptionMetadata> getExceptions() {
+
+        return exceptions;  
+    }
+
+    
 }

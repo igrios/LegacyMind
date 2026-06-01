@@ -101,6 +101,10 @@ public class LegacyObjectMapper {
 
                                 object.getSubprograms(),
 
+                                object.getCursors(), // cursores
+
+                                object.getExceptions(), // excepciones
+
                                 object.getBusinessRules(),
 
                                 object.getKnowledgeRelations());
@@ -127,7 +131,9 @@ public class LegacyObjectMapper {
                                                 ? entity.getFunctionalSummary()
                                                 : "No summary available",
 
-                                List.of(),
+                                List.of(),  // subprograms
+                                List.of(), // cursors
+                                List.of(), // exceptions
 
                                 mapBusinessRulesToMetadata(entity.getBusinessRules()),
 
