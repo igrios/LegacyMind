@@ -29,6 +29,17 @@ public class SqlSemanticExtractor {
   private static final Pattern INSERT_PATTERN = Pattern.compile(
       "\\bINSERT\\s+INTO\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)", Pattern.CASE_INSENSITIVE);
 
+private static final Pattern MERGE_PATTERN =
+    Pattern.compile(
+        "\\bMERGE\\s+INTO\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
+        Pattern.CASE_INSENSITIVE);
+
+private static final Pattern USING_PATTERN =
+    Pattern.compile(
+        "\\bUSING\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
+        Pattern.CASE_INSENSITIVE);
+
+
   public List<String> extractReadTables(String sourceCode) {
 
     Set<String> tables = new HashSet<>();
@@ -97,6 +108,20 @@ public class SqlSemanticExtractor {
       }
     }
 
+    Matcher usingMatcher = USING_PATTERN.matcher(normalized);
+
+while (usingMatcher.find()) {
+
+    String table = clean(usingMatcher.group(1));
+
+    if (isValidTable(table)) {
+
+        tables.add(table);
+
+        log.debug("MERGE USING TABLE >>> {}", table);
+    }
+}
+
     return tables.stream().distinct().toList();
   }
 
@@ -139,6 +164,20 @@ public class SqlSemanticExtractor {
         log.debug("INSERT TABLE >>> {}", table);
       }
     }
+
+Matcher mergeMatcher = MERGE_PATTERN.matcher(sourceCode);
+
+while (mergeMatcher.find()) {
+
+    String table = mergeMatcher.group(1).toUpperCase();
+
+    if (isValidTable(table)) {
+
+        result.add(table);
+
+        log.debug("MERGE TARGET TABLE >>> {}", table);
+    }
+}
 
     return result.stream().distinct().toList();
   }

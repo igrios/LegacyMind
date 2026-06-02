@@ -34,6 +34,8 @@ public class LegacyObject {
 
     private List<ExceptionMetadata> exceptions;
 
+    private List<DbLinkMetadata> dbLinks;
+
     public LegacyObject(
 
             String id,
@@ -49,10 +51,12 @@ public class LegacyObject {
             List<SubprogramNode> subprograms,
 
             List<CursorMetadata> cursors,
-            
+
             List<BusinessRuleMetadata> businessRules,
 
             List<ExceptionMetadata> exceptions,
+
+            List<DbLinkMetadata> dbLinks,
 
             List<KnowledgeRelation> knowledgeRelations,
 
@@ -84,6 +88,8 @@ public class LegacyObject {
 
         this.exceptions = exceptions;
 
+        this.dbLinks = dbLinks;
+
         this.knowledgeRelations = knowledgeRelations;
 
         this.sourceCode = sourceCode;
@@ -93,8 +99,6 @@ public class LegacyObject {
         this.riskScore = riskScore;
 
         this.riskLevel = riskLevel;
-
-
 
         this.functionalSummary = functionalSummary;
     }
@@ -171,13 +175,17 @@ public class LegacyObject {
 
     public List<BusinessRuleMetadata> getBusinessRules() {
 
-    return businessRules;
-}
+        return businessRules;
+    }
 
     public List<ExceptionMetadata> getExceptions() {
 
-        return exceptions;  
+        return exceptions;
     }
 
-    
+    public List<DbLinkMetadata> getDbLinks() {
+
+        return dbLinks;
+    }
+
 }

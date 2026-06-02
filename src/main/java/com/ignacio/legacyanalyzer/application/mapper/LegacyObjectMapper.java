@@ -105,6 +105,8 @@ public class LegacyObjectMapper {
 
                                 object.getExceptions(), // excepciones
 
+                                object.getDbLinks(),
+
                                 object.getBusinessRules(),
 
                                 object.getKnowledgeRelations());
@@ -133,6 +135,7 @@ public class LegacyObjectMapper {
 
                                 List.of(),  // subprograms
                                 List.of(), // cursors
+                                List.of(), // dbLinks   
                                 List.of(), // exceptions
 
                                 mapBusinessRulesToMetadata(entity.getBusinessRules()),

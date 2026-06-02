@@ -23,6 +23,7 @@ import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactUseCase;
 import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
+import com.ignacio.legacyanalyzer.domain.model.DbLinkMetadata;
 import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
@@ -131,9 +132,7 @@ public class LegacyController {
                                 object.getReferencedTables(), object.getCodeSmells(),
                                 object.getRiskScore(), object.getRiskLevel(),
                                 object.getFunctionalSummary(), object.getSubprograms(),
-
-                                object.getCursors(), object.getExceptions(),
-
+                                object.getCursors(), object.getExceptions(), object.getDbLinks(),
                                 object.getBusinessRules(), object.getKnowledgeRelations()));
         }
 
@@ -171,6 +170,8 @@ public class LegacyController {
                                 List.<CursorMetadata>of(), // cursors
 
                                 List.<ExceptionMetadata>of(), // exceptions
+
+                                List.<DbLinkMetadata>of(), // dbLinks                  
 
                                 List.<BusinessRuleMetadata>of(), // businessRules
 

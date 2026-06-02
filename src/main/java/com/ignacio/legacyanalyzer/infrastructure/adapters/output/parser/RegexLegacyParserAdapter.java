@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
+import com.ignacio.legacyanalyzer.domain.model.DbLinkMetadata;
 import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
 import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
@@ -25,6 +26,7 @@ import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
 import com.ignacio.legacyanalyzer.domain.services.BusinessRuleExtractor;
 import com.ignacio.legacyanalyzer.domain.services.CursorSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.DbLinkSemanticExtractor;
 import com.ignacio.legacyanalyzer.domain.services.ExceptionSemanticExtractor;
 import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
 import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
@@ -212,6 +214,14 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
         log.debug("REFERENCED TABLES BEFORE OBJECT >>> {}", referencedTables);
 
+      DbLinkSemanticExtractor dbLinkExtractor =
+        new DbLinkSemanticExtractor();
+
+List<DbLinkMetadata> dbLinks =
+        dbLinkExtractor.extract(sourceCode);
+
+        log.info("DBLINKS DETECTED >>> {}", dbLinks);
+
         return new LegacyObject(
 
                 UUID.randomUUID().toString(),
@@ -231,6 +241,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 businessRules,
 
                 exceptions,
+
+                dbLinks,
 
                 knowledgeRelations,
 

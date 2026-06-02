@@ -11,18 +11,34 @@ public class ExceptionSemanticExtractor {
   private static final Pattern EXCEPTION_PATTERN =
       Pattern.compile("WHEN\s+([A-Z_]+)\s+THEN", Pattern.CASE_INSENSITIVE);
 
-  public List<ExceptionMetadata> extract(String sql) {
+ public List<ExceptionMetadata> extract(String sql) {
 
     List<ExceptionMetadata> exceptions = new ArrayList<>();
 
-    Matcher matcher = EXCEPTION_PATTERN.matcher(sql);
+    String normalized = sql.toUpperCase();
+
+    int exceptionIndex = normalized.indexOf("EXCEPTION");
+
+    if (exceptionIndex == -1) {
+
+        return exceptions;
+    }
+
+    String exceptionBlock = normalized.substring(exceptionIndex);
+
+    Matcher matcher = EXCEPTION_PATTERN.matcher(exceptionBlock);
 
     while (matcher.find()) {
-      String exceptionName = matcher.group(1).toUpperCase();
-      exceptions.add(new ExceptionMetadata(exceptionName, "OTHERS".equals(exceptionName)));
+
+        String exceptionName = matcher.group(1);
+
+        exceptions.add(
+                new ExceptionMetadata(
+                        exceptionName,
+                        "OTHERS".equals(exceptionName)));
     }
 
     return exceptions;
-  }
+}
 
 }
