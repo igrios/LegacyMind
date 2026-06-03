@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
+import com.ignacio.legacyanalyzer.application.dto.MetadataResponse;
 import com.ignacio.legacyanalyzer.application.mapper.LegacyObjectMapper;
 import com.ignacio.legacyanalyzer.application.usecase.DeleteDatabaseUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
@@ -171,7 +172,7 @@ public class LegacyController {
 
                                 List.<ExceptionMetadata>of(), // exceptions
 
-                                List.<DbLinkMetadata>of(), // dbLinks                  
+                                List.<DbLinkMetadata>of(), // dbLinks
 
                                 List.<BusinessRuleMetadata>of(), // businessRules
 
@@ -254,5 +255,22 @@ public class LegacyController {
 
                                 .orElse(ResponseEntity.notFound().build());
         }
+
+
+        @GetMapping("/metadata/{name}")
+        public ResponseEntity<MetadataResponse> getMetadata(@PathVariable String name) {
+
+                LegacyObjectMapper mapper = new LegacyObjectMapper();
+
+                return repository.findByName(name)
+
+                                .map(entity ->
+
+                                ResponseEntity.ok(mapper.toMetadataResponse(entity)))
+
+                                .orElse(ResponseEntity.notFound().build());
+        }
+
+
 
 }

@@ -9,4 +9,6 @@ public interface LegacyObjectRepository extends JpaRepository<LegacyObjectEntity
 
   Optional<LegacyObjectEntity> findByName(String name);
 
+  
+
 }

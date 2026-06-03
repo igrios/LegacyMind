@@ -41,6 +41,10 @@ class LegacyObjectMapperTest {
                 List.of(), // business rules
 
                 List.of(), // subprograms
+                
+                List.of(), // exceptions
+
+                List.of(), // db links
 
                 LocalDateTime.now());
 
@@ -106,6 +110,10 @@ class LegacyObjectMapperTest {
                 List.of(), // business rules
 
                 List.of(), // subprograms
+
+                List.of(), // exceptions
+
+                List.of(), // db links
 
                 LocalDateTime.now());
 

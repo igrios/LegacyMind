@@ -7,13 +7,17 @@ import java.util.stream.Collectors;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
+import com.ignacio.legacyanalyzer.domain.model.DbLinkMetadata;
+import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.BusinessRuleEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.CursorMetadataEntity;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.DbLinkMetadataEntity;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.ExceptionMetadataEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.SubprogramNodeEntity;
-
+import com.ignacio.legacyanalyzer.application.dto.MetadataResponse;
 
 
 public class LegacyObjectMapper {
@@ -29,6 +33,11 @@ public class LegacyObjectMapper {
                                 mapSubprograms(object.getSubprograms());
                 List<BusinessRuleEntity> businessRuleEntities =
                                 mapBusinessRules(object.getBusinessRules());
+
+                List<ExceptionMetadataEntity> exceptionEntities =
+                                mapExceptions(object.getExceptions());
+
+                List<DbLinkMetadataEntity> dbLinkEntities = mapDbLinks(object.getDbLinks());
                 // =========================================
                 // CREATE PARENT ENTITY
                 // =========================================
@@ -59,6 +68,10 @@ public class LegacyObjectMapper {
 
                                 businessRuleEntities,
 
+                                exceptionEntities,
+
+                                dbLinkEntities,
+
                                 subprogramEntities,
 
                                 LocalDateTime.now());
@@ -67,17 +80,29 @@ public class LegacyObjectMapper {
                 // SET PARENT REFERENCE
                 // =========================================
 
-                cursorEntities.forEach(
-
-                                cursor -> cursor.setLegacyObject(entity));
+                cursorEntities.forEach(cursor -> cursor.setLegacyObject(entity));
 
                 System.out.println("CURSOR ENTITIES SIZE >>> " + cursorEntities.size());
 
                 cursorEntities.forEach(
-
                                 c -> System.out.println("CURSOR ENTITY >>> " + c.getCursorName()));
+
+                System.out.println("CURSOR ENTITIES SIZE >>> " + cursorEntities.size());
+
+                exceptionEntities.forEach(exception -> exception.setLegacyObject(entity));
+
+                System.out.println("SUBPROGRAM ENTITIES SIZE >>> " + subprogramEntities.size());
+
+                dbLinkEntities.forEach(exception -> exception.setLegacyObject(entity));
+
+                System.out.println("SUBPROGRAM ENTITIES SIZE >>> " + subprogramEntities.size());
+                 
+               
                 return entity;
+
         }
+
+
 
         public AnalyzeLegacyResponse toResponse(LegacyObject object) {
 
@@ -133,9 +158,9 @@ public class LegacyObjectMapper {
                                                 ? entity.getFunctionalSummary()
                                                 : "No summary available",
 
-                                List.of(),  // subprograms
+                                List.of(), // subprograms
                                 List.of(), // cursors
-                                List.of(), // dbLinks   
+                                List.of(), // dbLinks
                                 List.of(), // exceptions
 
                                 mapBusinessRulesToMetadata(entity.getBusinessRules()),
@@ -251,6 +276,142 @@ public class LegacyObjectMapper {
 
                                 .toList();
         }
+
+        private List<ExceptionMetadataEntity> mapExceptions(List<ExceptionMetadata> exceptions) {
+
+                if (exceptions == null) {
+
+                        return List.of();
+                }
+
+                return exceptions.stream()
+
+                                .map(exception -> {
+
+                                        ExceptionMetadataEntity entity =
+                                                        new ExceptionMetadataEntity();
+
+                                        entity.setExceptionName(exception.exceptionName());
+
+                                        entity.setGenericHandler(exception.genericHandler());
+
+                                        return entity;
+                                })
+
+                                .toList();
+        }
+
+        private List<DbLinkMetadataEntity> mapDbLinks(List<DbLinkMetadata> dbLinks) {
+
+                if (dbLinks == null) {
+
+                        return List.of();
+                }
+
+                return dbLinks.stream()
+
+                                .map(dbLink -> {
+
+                                        DbLinkMetadataEntity entity = new DbLinkMetadataEntity();
+
+                                        entity.setDbLinkName(dbLink.dbLinkName());
+
+                                        entity.setRemoteObject(dbLink.tableName());
+
+                                        return entity;
+                                })
+
+                                .toList();
+        }
+
+
+
+        public MetadataResponse toMetadataResponse(
+        LegacyObjectEntity entity) {
+
+    return new MetadataResponse(
+
+            entity.getName(),
+
+            entity.getType(),
+
+            mapCursorEntitiesToMetadata(
+                    entity.getCursors()),
+
+            mapExceptionEntitiesToMetadata(
+                    entity.getExceptions()),
+
+            mapBusinessRulesToMetadata(
+                    entity.getBusinessRules()),
+
+            mapDbLinkEntitiesToMetadata(
+                    entity.getDbLinks())
+    );
+}
+
+
+private List<CursorMetadata> mapCursorEntitiesToMetadata(
+        List<CursorMetadataEntity> cursors) {
+
+    if (cursors == null) {
+
+        return List.of();
+    }
+
+    return cursors.stream()
+
+            .map(c -> new CursorMetadata(
+
+                    c.getCursorName(),
+
+                    List.of(), // referencedTables
+
+                    c.isBulkCollect(),
+
+                    c.isForUpdate(),
+
+                    c.isForall()))
+
+            .toList();
+}
+private List<ExceptionMetadata> mapExceptionEntitiesToMetadata(
+        List<ExceptionMetadataEntity> exceptions) {
+
+    if (exceptions == null) {
+
+        return List.of();
+    }
+
+    return exceptions.stream()
+
+            .map(e -> new ExceptionMetadata(
+
+                    e.getExceptionName(),
+
+                    e.isGenericHandler()))
+
+            .toList();
+}
+
+private List<DbLinkMetadata> mapDbLinkEntitiesToMetadata(
+        List<DbLinkMetadataEntity> dbLinks) {
+
+    if (dbLinks == null) {
+
+        return List.of();
+    }
+
+    return dbLinks.stream()
+
+            .map(d -> new DbLinkMetadata(
+
+                    d.getRemoteObject(),
+
+                    d.getDbLinkName()))
+
+            .toList();
+}
+
 
 
 }
