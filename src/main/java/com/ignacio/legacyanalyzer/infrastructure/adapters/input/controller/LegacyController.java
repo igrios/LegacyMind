@@ -26,6 +26,7 @@ import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
 import com.ignacio.legacyanalyzer.domain.model.DbLinkMetadata;
 import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
+import com.ignacio.legacyanalyzer.domain.model.GraphNode;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
@@ -36,6 +37,7 @@ import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
+import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
 
 @CrossOrigin(origins = "*")
@@ -207,24 +209,80 @@ public class LegacyController {
 
                 List<KnowledgeRelationEntity> relations = knowledgeRelationRepository.findAll();
 
-                Set<String> nodes = new HashSet<>();
 
-                List<Map<String, String>> edges = relations.stream().map(relation -> {
+                Map<String, String> nodeTypes = new HashMap<>();
 
-                        nodes.add(relation.getSource());
+                List<LegacyObjectEntity> legacyObjects = repository.findAll();
 
-                        nodes.add(relation.getTarget());
+                System.out.println(
+        "LEGACY OBJECTS SIZE >>> "
+                + legacyObjects.size());
 
-                        Map<String, String> edge = new HashMap<>();
+                legacyObjects.forEach(object ->
 
-                        edge.put("source", relation.getSource());
+                nodeTypes.put(
 
-                        edge.put("target", relation.getTarget());
+                                object.getName(),
 
-                        edge.put("relation", relation.getRelation());
+                                object.getType()));
 
-                        return edge;
-                }).toList();
+                // NodeTypeResolver resolver = new NodeTypeResolver();
+
+                Set<GraphNode> nodes = new HashSet<>();
+
+                List<Map<String, String>> edges = relations.stream()
+
+                                .map(relation -> {
+
+                                        nodes.add(
+
+                                                        new GraphNode(
+
+                                                                        relation.getSource(),
+
+                                                                        nodeTypes.getOrDefault(
+
+                                                                                        relation.getSource(),
+
+                                                                                        "UNKNOWN")));
+
+                                        nodes.add(
+
+                                                        new GraphNode(
+
+                                                                        relation.getTarget(),
+
+                                                                        nodeTypes.getOrDefault(
+
+                                                                                        relation.getTarget(),
+
+                                                                                        "TABLE")));
+
+
+
+                                        Map<String, String> edge = new HashMap<>();
+
+                                        edge.put("source", relation.getSource());
+
+                                        edge.put("target", relation.getTarget());
+
+                                        edge.put("relation", relation.getRelation());
+
+                                        return edge;
+
+
+
+                                }).toList();
+
+                legacyObjects.forEach(object ->
+
+                nodes.add(
+
+                                new GraphNode(
+
+                                                object.getName(),
+
+                                                object.getType())));
 
                 Map<String, Object> result = new HashMap<>();
 
