@@ -1,7 +1,5 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.input.controller;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,11 +20,11 @@ import com.ignacio.legacyanalyzer.application.usecase.DeleteDatabaseUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactUseCase;
+import com.ignacio.legacyanalyzer.application.usecase.GetKnowledgeGraphUseCase;
 import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
 import com.ignacio.legacyanalyzer.domain.model.DbLinkMetadata;
 import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
-import com.ignacio.legacyanalyzer.domain.model.GraphNode;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
@@ -37,7 +35,6 @@ import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
-import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
 
 @CrossOrigin(origins = "*")
@@ -55,6 +52,7 @@ public class LegacyController {
         private final GetImpactGraphUseCase getImpactGraphUseCase;
         private final KnowledgeRelationRepository knowledgeRelationRepository;
         private final DeleteDatabaseUseCase deleteDatabaseUseCase;
+        private final GetKnowledgeGraphUseCase getKnowledgeGraphUseCase;
 
         public LegacyController(LegacyObjectRepository repository,
                         RegexLegacyParserAdapter parserAdapter, GetImpactUseCase getImpactUseCase,
@@ -64,7 +62,8 @@ public class LegacyController {
                         ImpactAnalysisService impactService,
                         GetImpactGraphUseCase getImpactGraphUseCase,
                         KnowledgeRelationRepository knowledgeRelationRepository,
-                        DeleteDatabaseUseCase deleteDatabaseUseCase) {
+                        DeleteDatabaseUseCase deleteDatabaseUseCase,
+                        GetKnowledgeGraphUseCase getKnowledgeGraphUseCase       ) {
 
                 this.repository = repository;
                 this.parserAdapter = parserAdapter;
@@ -76,6 +75,7 @@ public class LegacyController {
                 this.getImpactGraphUseCase = getImpactGraphUseCase;
                 this.knowledgeRelationRepository = knowledgeRelationRepository;
                 this.deleteDatabaseUseCase = deleteDatabaseUseCase;
+                this.getKnowledgeGraphUseCase = getKnowledgeGraphUseCase;
         }
 
 
@@ -204,94 +204,11 @@ public class LegacyController {
                 return getImpactGraphUseCase.execute(table);
         }
 
-        @GetMapping("/knowledge-graph")
-        public Map<String, Object> getKnowledgeGraph() {
+     @GetMapping("/knowledge-graph")
+public Map<String, Object> getKnowledgeGraph() {
 
-                List<KnowledgeRelationEntity> relations = knowledgeRelationRepository.findAll();
-
-
-                Map<String, String> nodeTypes = new HashMap<>();
-
-                List<LegacyObjectEntity> legacyObjects = repository.findAll();
-
-                System.out.println(
-        "LEGACY OBJECTS SIZE >>> "
-                + legacyObjects.size());
-
-                legacyObjects.forEach(object ->
-
-                nodeTypes.put(
-
-                                object.getName(),
-
-                                object.getType()));
-
-                // NodeTypeResolver resolver = new NodeTypeResolver();
-
-                Set<GraphNode> nodes = new HashSet<>();
-
-                List<Map<String, String>> edges = relations.stream()
-
-                                .map(relation -> {
-
-                                        nodes.add(
-
-                                                        new GraphNode(
-
-                                                                        relation.getSource(),
-
-                                                                        nodeTypes.getOrDefault(
-
-                                                                                        relation.getSource(),
-
-                                                                                        "UNKNOWN")));
-
-                                        nodes.add(
-
-                                                        new GraphNode(
-
-                                                                        relation.getTarget(),
-
-                                                                        nodeTypes.getOrDefault(
-
-                                                                                        relation.getTarget(),
-
-                                                                                        "TABLE")));
-
-
-
-                                        Map<String, String> edge = new HashMap<>();
-
-                                        edge.put("source", relation.getSource());
-
-                                        edge.put("target", relation.getTarget());
-
-                                        edge.put("relation", relation.getRelation());
-
-                                        return edge;
-
-
-
-                                }).toList();
-
-                legacyObjects.forEach(object ->
-
-                nodes.add(
-
-                                new GraphNode(
-
-                                                object.getName(),
-
-                                                object.getType())));
-
-                Map<String, Object> result = new HashMap<>();
-
-                result.put("nodes", nodes);
-
-                result.put("edges", edges);
-
-                return result;
-        }
+    return getKnowledgeGraphUseCase.execute();
+}
 
 
         @DeleteMapping("/database")
