@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyRequest;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
+import com.ignacio.legacyanalyzer.application.dto.ImpactAnalysisResponse;
 import com.ignacio.legacyanalyzer.application.dto.MetadataResponse;
 import com.ignacio.legacyanalyzer.application.mapper.LegacyObjectMapper;
 import com.ignacio.legacyanalyzer.application.usecase.DeleteDatabaseUseCase;
@@ -32,6 +33,7 @@ import com.ignacio.legacyanalyzer.domain.model.TableDependency;
 import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
 import com.ignacio.legacyanalyzer.domain.services.DependencyAnalyzerService;
 import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
+import com.ignacio.legacyanalyzer.domain.services.ImpactAnalyzer;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
@@ -63,7 +65,7 @@ public class LegacyController {
                         GetImpactGraphUseCase getImpactGraphUseCase,
                         KnowledgeRelationRepository knowledgeRelationRepository,
                         DeleteDatabaseUseCase deleteDatabaseUseCase,
-                        GetKnowledgeGraphUseCase getKnowledgeGraphUseCase       ) {
+                        GetKnowledgeGraphUseCase getKnowledgeGraphUseCase) {
 
                 this.repository = repository;
                 this.parserAdapter = parserAdapter;
@@ -204,11 +206,11 @@ public class LegacyController {
                 return getImpactGraphUseCase.execute(table);
         }
 
-     @GetMapping("/knowledge-graph")
-public Map<String, Object> getKnowledgeGraph() {
+        @GetMapping("/knowledge-graph")
+        public Map<String, Object> getKnowledgeGraph() {
 
-    return getKnowledgeGraphUseCase.execute();
-}
+                return getKnowledgeGraphUseCase.execute();
+        }
 
 
         @DeleteMapping("/database")
@@ -244,6 +246,24 @@ public Map<String, Object> getKnowledgeGraph() {
                                 ResponseEntity.ok(mapper.toMetadataResponse(entity)))
 
                                 .orElse(ResponseEntity.notFound().build());
+        }
+
+
+        @RestController
+        @RequestMapping("/api/test")
+        public class ImpactTestController {
+
+                private final ImpactAnalyzer impactAnalyzer;
+
+                public ImpactTestController(ImpactAnalyzer impactAnalyzer) {
+                        this.impactAnalyzer = impactAnalyzer;
+                }
+
+                @GetMapping("/impact/{objectName}")
+                public ImpactAnalysisResponse impact(@PathVariable String objectName) {
+
+                        return impactAnalyzer.analyze(objectName);
+                }
         }
 
 

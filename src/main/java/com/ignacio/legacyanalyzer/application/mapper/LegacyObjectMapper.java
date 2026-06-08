@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
+import com.ignacio.legacyanalyzer.application.dto.MetadataResponse;
 import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
 import com.ignacio.legacyanalyzer.domain.model.DbLinkMetadata;
@@ -17,7 +18,6 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.ent
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.DbLinkMetadataEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.ExceptionMetadataEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.SubprogramNodeEntity;
-import com.ignacio.legacyanalyzer.application.dto.MetadataResponse;
 
 
 public class LegacyObjectMapper {
@@ -224,7 +224,7 @@ public class LegacyObjectMapper {
 
                                         SubprogramNodeEntity entity = new SubprogramNodeEntity();
                                         entity.setSubprogramName(subprogram.getName());
-
+                                        entity.setQualifiedName(subprogram.getQualifiedName());
                                         entity.setSubprogramType(subprogram.getType());
 
                                         return entity;

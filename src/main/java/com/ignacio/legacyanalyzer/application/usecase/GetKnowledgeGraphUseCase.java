@@ -1,34 +1,34 @@
 package com.ignacio.legacyanalyzer.application.usecase;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import org.springframework.stereotype.Component;
-
-import com.ignacio.legacyanalyzer.domain.model.GraphNode;
-import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
+import com.ignacio.legacyanalyzer.domain.services.KnowledgeGraphService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
-import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
-
 @Component
 public class GetKnowledgeGraphUseCase {
 
     private final KnowledgeRelationRepository knowledgeRelationRepository;
 
     private final LegacyObjectRepository repository;
+    private final KnowledgeGraphService knowledgeGraphService;
 
     public GetKnowledgeGraphUseCase(
             KnowledgeRelationRepository knowledgeRelationRepository,
-            LegacyObjectRepository repository) {
+            LegacyObjectRepository repository,
+            KnowledgeGraphService knowledgeGraphService) {
 
         this.knowledgeRelationRepository = knowledgeRelationRepository;
         this.repository = repository;
+        this.knowledgeGraphService = knowledgeGraphService;
     }
 
+
+public Map<String, Object> execute() {
+
+    return knowledgeGraphService.buildGraph();
+}
+/*
     public Map<String, Object> execute() {
 
         List<KnowledgeRelationEntity> relations =
@@ -119,5 +119,5 @@ public class GetKnowledgeGraphUseCase {
         result.put("edges", edges);
 
         return result;
-    }
+    }*/
 }

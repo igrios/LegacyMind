@@ -21,6 +21,9 @@ public class SubprogramNodeEntity {
     @Column(name = "subprogram_name")
     private String subprogramName;
 
+    @Column(name = "qualified_name")
+private String qualifiedName;
+
     @Column(name = "subprogram_type")
     private String subprogramType;
 
@@ -61,4 +64,15 @@ public class SubprogramNodeEntity {
 
         this.legacyObject = legacyObject;
     }
+
+public String getQualifiedName() {
+        return qualifiedName;
+    }
+
+    public void setQualifiedName(String qualifiedName) {
+        this.qualifiedName = qualifiedName;
+    }   
+
+    
+
 }
