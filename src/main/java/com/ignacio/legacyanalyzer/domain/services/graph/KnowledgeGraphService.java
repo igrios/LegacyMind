@@ -1,4 +1,4 @@
-package com.ignacio.legacyanalyzer.domain.services;
+package com.ignacio.legacyanalyzer.domain.services.graph;
 
 import java.util.HashMap;
 import java.util.HashSet;

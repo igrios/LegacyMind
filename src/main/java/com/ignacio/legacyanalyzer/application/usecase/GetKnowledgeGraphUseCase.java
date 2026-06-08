@@ -2,7 +2,7 @@ package com.ignacio.legacyanalyzer.application.usecase;
 
 import java.util.Map;
 import org.springframework.stereotype.Component;
-import com.ignacio.legacyanalyzer.domain.services.KnowledgeGraphService;
+import com.ignacio.legacyanalyzer.domain.services.graph.KnowledgeGraphService;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
 @Component
