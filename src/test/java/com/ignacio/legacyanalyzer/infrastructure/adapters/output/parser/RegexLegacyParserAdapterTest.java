@@ -10,10 +10,10 @@ import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
-import com.ignacio.legacyanalyzer.domain.services.CursorSemanticExtractor;
-import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
-import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
-import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.risk.LegacyRiskAnalyzer;
+import com.ignacio.legacyanalyzer.domain.services.semantic.CursorSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.GraphRelationExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.SqlSemanticExtractor;
 
 class RegexLegacyParserAdapterTest {
 

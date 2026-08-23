@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
+import com.ignacio.legacyanalyzer.domain.services.semantic.BusinessRuleExtractor;
 
 public class BusinessRuleExtractorTest {
 

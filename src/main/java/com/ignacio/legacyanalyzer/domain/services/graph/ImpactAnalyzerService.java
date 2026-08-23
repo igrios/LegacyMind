@@ -1,4 +1,4 @@
-package com.ignacio.legacyanalyzer.domain.services;
+package com.ignacio.legacyanalyzer.domain.services.graph;
 
 import java.util.HashSet;
 import java.util.List;
@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import com.ignacio.legacyanalyzer.application.dto.ImpactAnalysisResponse;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class ImpactAnalyzerService implements ImpactAnalyzer {
 
@@ -31,13 +33,8 @@ public ImpactAnalysisResponse analyze(
             impacted
     );
 
-    System.out.println("=================================");
-        System.out.println("ROOT: " + objectName);
-        System.out.println("IMPACT SIZE: " + impacted.size());
-
-        impacted.forEach(System.out::println);
-
-        System.out.println("=================================");
+    log.debug("Impact analysis root={} size={} impacted={}",
+            objectName, impacted.size(), impacted);
 
      
 

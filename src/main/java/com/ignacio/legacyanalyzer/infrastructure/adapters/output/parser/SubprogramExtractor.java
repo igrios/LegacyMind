@@ -7,8 +7,12 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
-import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.SqlSemanticExtractor;
+import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@Component
 public class SubprogramExtractor {
 
         private static final Pattern PROCEDURE_PATTERN =
@@ -40,8 +44,13 @@ public class SubprogramExtractor {
                 while (matcher.find()) {
 
                         String body = matcher.group();
+//String body = matcher.group();
 
-                        String procedureName = matcher.group(1);
+String procedureName = matcher.group(1);
+
+log.debug("Extracted procedure {} with body: {}", procedureName, body);
+
+                      //  String procedureName = matcher.group(1);
 
                         SubprogramNode node = new SubprogramNode();
 
@@ -93,7 +102,7 @@ public class SubprogramExtractor {
 
                         node.setBody(body);
 
-                        // =============================================
+                        // =============================================matcher.group();
                         // SEMANTIC SQL EXTRACTION
                         // =============================================
 

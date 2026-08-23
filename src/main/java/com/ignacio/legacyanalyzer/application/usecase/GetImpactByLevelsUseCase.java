@@ -3,7 +3,7 @@ package com.ignacio.legacyanalyzer.application.usecase;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
-import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
+import com.ignacio.legacyanalyzer.domain.services.graph.ImpactAnalysisService;
 
 @Service
 public class GetImpactByLevelsUseCase {

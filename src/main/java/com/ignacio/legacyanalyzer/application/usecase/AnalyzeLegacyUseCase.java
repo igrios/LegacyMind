@@ -2,37 +2,40 @@ package com.ignacio.legacyanalyzer.application.usecase;
 
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.TableDependency;
-import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
+import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
+import com.ignacio.legacyanalyzer.domain.ports.PersistAnalysisPort;
 import com.ignacio.legacyanalyzer.domain.services.DependencyAnalyzerService;
-import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
 
 @Service
 public class AnalyzeLegacyUseCase {
 
-    private final TableDependencyRepositoryPort dependencyRepositoryPort;
-    private final RegexLegacyParserAdapter parserAdapter;
+    private final LegacyParserPort parserPort;
+    private final PersistAnalysisPort persistAnalysisPort;
     private final DependencyAnalyzerService analyzerService;
 
     public AnalyzeLegacyUseCase(
-            TableDependencyRepositoryPort dependencyRepositoryPort,
-            RegexLegacyParserAdapter parserAdapter,
+            LegacyParserPort parserPort,
+            PersistAnalysisPort persistAnalysisPort,
             DependencyAnalyzerService analyzerService) {
 
-        this.dependencyRepositoryPort = dependencyRepositoryPort;
-        this.parserAdapter = parserAdapter;
+        this.parserPort = parserPort;
+        this.persistAnalysisPort = persistAnalysisPort;
         this.analyzerService = analyzerService;
     }
 
-    public void processDependencies(LegacyObject object, String sourceCode) {
+    @Transactional
+    public LegacyObject execute(String sourceCode) {
+        LegacyObject object = parserPort.parse(sourceCode);
 
-        List<String> relations =
-                parserAdapter.extractSemanticRelations(sourceCode);
-
-        List<TableDependency> deps =
+        List<String> relations = parserPort.extractSemanticRelations(sourceCode);
+        List<TableDependency> dependencies =
                 analyzerService.buildFromRelations(relations, object.getName());
 
-        dependencyRepositoryPort.saveAll(deps);
+        persistAnalysisPort.persist(object, dependencies);
+
+        return object;
     }
 }

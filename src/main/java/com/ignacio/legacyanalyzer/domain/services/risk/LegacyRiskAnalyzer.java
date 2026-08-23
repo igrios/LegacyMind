@@ -1,4 +1,4 @@
-package com.ignacio.legacyanalyzer.domain.services;
+package com.ignacio.legacyanalyzer.domain.services.risk;
 
 import java.util.ArrayList;
 import java.util.List;

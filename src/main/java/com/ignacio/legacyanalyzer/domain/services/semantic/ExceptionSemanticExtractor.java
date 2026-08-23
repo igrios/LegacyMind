@@ -1,4 +1,4 @@
-package com.ignacio.legacyanalyzer.domain.services;
+package com.ignacio.legacyanalyzer.domain.services.semantic;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,7 +6,9 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
+import org.springframework.stereotype.Service;
 
+@Service
 public class ExceptionSemanticExtractor {
 
     private static final Pattern EXCEPTION_PATTERN =

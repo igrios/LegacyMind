@@ -1,11 +1,15 @@
-package com.ignacio.legacyanalyzer.domain.services;
+package com.ignacio.legacyanalyzer.domain.services.semantic;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
+import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@Service
 public class BusinessRuleExtractor {
 
   
@@ -16,7 +20,7 @@ private static final Pattern RAISE_PATTERN =
 
     public List<BusinessRuleMetadata> extract(String sql) {
 
-      System.out.println(sql);
+        log.debug("Extracting business rules from source: {}", sql);
         List<BusinessRuleMetadata> rules =
                 new ArrayList<>();
 

@@ -1,21 +1,12 @@
 package com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import com.ignacio.legacyanalyzer.domain.model.BusinessRuleMetadata;
-import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
 import com.ignacio.legacyanalyzer.domain.model.DbLinkMetadata;
-import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
 import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
@@ -24,870 +15,161 @@ import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
 import com.ignacio.legacyanalyzer.domain.ports.LegacyParserPort;
-import com.ignacio.legacyanalyzer.domain.services.BusinessRuleExtractor;
-import com.ignacio.legacyanalyzer.domain.services.CursorSemanticExtractor;
-import com.ignacio.legacyanalyzer.domain.services.DbLinkSemanticExtractor;
-import com.ignacio.legacyanalyzer.domain.services.ExceptionSemanticExtractor;
-import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
-import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
-import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
-import lombok.RequiredArgsConstructor;
+import com.ignacio.legacyanalyzer.domain.services.risk.LegacyRiskAnalyzer;
+import com.ignacio.legacyanalyzer.domain.services.semantic.BusinessRuleExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.CursorSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.DbLinkSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.ExceptionSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.GraphRelationExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.SqlSemanticExtractor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class RegexLegacyParserAdapter implements LegacyParserPort {
 
     private final LegacyRiskAnalyzer riskAnalyzer;
     private final GraphRelationExtractor graphRelationExtractor;
     private final SqlSemanticExtractor semanticExtractor;
-    private final CursorSemanticExtractor cursorSemanticExtractor;
+    private final StructuralObjectExtractor structuralExtractor;
+    private final SubprogramExtractor subprogramExtractor;
+    private final CursorAndExceptionExtractor cursorAndExceptionExtractor;
+    private final DbLinkExtractor dbLinkExtractor;
+    private final BusinessRuleExtractor businessRuleExtractor;
+    private final OracleJoinExtractor joinExtractor;
+    private final SemanticDependencyExtractor dependencyExtractor;
+    private final SqlSemanticModelExtractor semanticModelExtractor;
 
-    private static final Pattern NAME_PATTERN = Pattern.compile("CREATE\\s+OR\\s+REPLACE\\s+"
-            + "(MATERIALIZED\\s+VIEW|PACKAGE|PROCEDURE|FUNCTION|TRIGGER|VIEW)" + "\\s+(BODY\\s+)?"
-            + "([A-Z][A-Z0-9_.$#@]*)", Pattern.CASE_INSENSITIVE);
+    @Autowired
+    public RegexLegacyParserAdapter(
+            LegacyRiskAnalyzer riskAnalyzer,
+            GraphRelationExtractor graphRelationExtractor,
+            SqlSemanticExtractor semanticExtractor,
+            StructuralObjectExtractor structuralExtractor,
+            SubprogramExtractor subprogramExtractor,
+            CursorAndExceptionExtractor cursorAndExceptionExtractor,
+            DbLinkExtractor dbLinkExtractor,
+            BusinessRuleExtractor businessRuleExtractor,
+            OracleJoinExtractor joinExtractor,
+            SemanticDependencyExtractor dependencyExtractor,
+            SqlSemanticModelExtractor semanticModelExtractor) {
+        this.riskAnalyzer = riskAnalyzer;
+        this.graphRelationExtractor = graphRelationExtractor;
+        this.semanticExtractor = semanticExtractor;
+        this.structuralExtractor = structuralExtractor;
+        this.subprogramExtractor = subprogramExtractor;
+        this.cursorAndExceptionExtractor = cursorAndExceptionExtractor;
+        this.dbLinkExtractor = dbLinkExtractor;
+        this.businessRuleExtractor = businessRuleExtractor;
+        this.joinExtractor = joinExtractor;
+        this.dependencyExtractor = dependencyExtractor;
+        this.semanticModelExtractor = semanticModelExtractor;
+    }
 
-    private static final Pattern PROCEDURE_PATTERN =
-            Pattern.compile("\\bPROCEDURE\\s+(\\w+)\\s*(\\(|IS|AS)", Pattern.CASE_INSENSITIVE);
-
-    private static final Pattern DELETE_PATTERN =
-            Pattern.compile("\\bDELETE\\s+FROM\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
-                    Pattern.CASE_INSENSITIVE);
-
-    private static final Pattern UPDATE_PATTERN = Pattern.compile(
-            "\\bUPDATE\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)", Pattern.CASE_INSENSITIVE);
-
-    private static final Pattern INSERT_PATTERN =
-            Pattern.compile("\\bINSERT\\s+INTO\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
-                    Pattern.CASE_INSENSITIVE);
-
-    private static final Pattern SIMPLE_UPDATE_PATTERN =
-            Pattern.compile("\\bUPDATE\\s+(\\w+)", Pattern.CASE_INSENSITIVE);
-
-
-    private static final Pattern JOIN_PATTERN =
-            Pattern.compile("\\bJOIN\\s+([A-Z][A-Z0-9_.$#@]*(?:\\.[A-Z][A-Z0-9_.$#@]*)?)",
-                    Pattern.CASE_INSENSITIVE);
-
-    private static final Pattern JOIN_ALIAS_PATTERN = Pattern.compile(
-            "\\bJOIN\\s+([A-Z][A-Z0-9_.$#@]*(?:\\.[A-Z][A-Z0-9_.$#@]*)?)\\s+([A-Z][A-Z0-9_]*)",
-            Pattern.CASE_INSENSITIVE);
-
-    private static final Pattern TRIGGER_ON_PATTERN =
-            Pattern.compile("\\bON\\s+([A-Z][A-Z0-9_.$#@]*)", Pattern.CASE_INSENSITIVE);
-
+    /** Compatibility constructor for focused parser tests and non-Spring clients. */
+    public RegexLegacyParserAdapter(
+            LegacyRiskAnalyzer riskAnalyzer,
+            GraphRelationExtractor graphRelationExtractor,
+            SqlSemanticExtractor semanticExtractor,
+            CursorSemanticExtractor cursorSemanticExtractor) {
+        OracleJoinExtractor oracleJoinExtractor = new OracleJoinExtractor();
+        SemanticDependencyExtractor semanticDependencies =
+                new SemanticDependencyExtractor(semanticExtractor, oracleJoinExtractor);
+        this.riskAnalyzer = riskAnalyzer;
+        this.graphRelationExtractor = graphRelationExtractor;
+        this.semanticExtractor = semanticExtractor;
+        this.structuralExtractor = new StructuralObjectExtractor();
+        this.subprogramExtractor = new SubprogramExtractor();
+        this.cursorAndExceptionExtractor = new CursorAndExceptionExtractor(
+                cursorSemanticExtractor, new ExceptionSemanticExtractor());
+        this.dbLinkExtractor = new DbLinkExtractor(new DbLinkSemanticExtractor());
+        this.businessRuleExtractor = new BusinessRuleExtractor();
+        this.joinExtractor = oracleJoinExtractor;
+        this.dependencyExtractor = semanticDependencies;
+        this.semanticModelExtractor = new SqlSemanticModelExtractor(
+                semanticExtractor, semanticDependencies, oracleJoinExtractor, riskAnalyzer);
+    }
 
     @Override
     public LegacyObject parse(String sourceCode) {
-
         if (sourceCode == null || sourceCode.isBlank()) {
-
-        throw new IllegalArgumentException(
-                "Source code cannot be null or empty");
-    }
-
-
-        String cleanSource = preProcess(sourceCode);
-
-        String normalized = normalizeSql(cleanSource);
-
-        String sql = normalized.replaceAll("\\b[A-Z_]+\\s*\\([^()]*\\)", " ");
-
-        
-
-        // =============================
-        // NAME + TYPE
-        // =============================
-
-        String name = null;
-
-        String type = null;
-
-        Matcher nameMatcher = NAME_PATTERN.matcher(sourceCode);
-
-        if (nameMatcher.find()) {
-
-            type = nameMatcher.group(1).toUpperCase().replaceAll("\\s+", "_");
-
-            name = nameMatcher.group(3).toUpperCase();
+            throw new IllegalArgumentException("Source code cannot be null or empty");
         }
 
-        // =============================
-        // PROCEDURES
-        // =============================
-
-        List<String> procedures = new ArrayList<>();
-
-        Matcher procMatcher = PROCEDURE_PATTERN.matcher(sourceCode);
-
-        while (procMatcher.find()) {
-
-            String procedure = procMatcher.group(1).toUpperCase();
-
-            if (name == null || !procedure.equals(name)) {
-
-                procedures.add(procedure);
-            }
-        }
-
-        procedures = procedures.stream().distinct().toList();
-
-        // =============================
-        // SUBPROGRAMS
-        // =============================
-
-        SubprogramExtractor subprogramExtractor = new SubprogramExtractor();
-
-        List<SubprogramNode> subprograms = subprogramExtractor.extract(sourceCode, name);
-
-        // detectSubprogramCalls(subprograms);
-
-        log.debug("SUBPROGRAMS >>> {}", subprograms.size());
-
-        log.debug("FROM CLAUSE >>> {}", extractTopLevelFromClause(sql));
-
-        // =============================
-        // READ TABLES
-        // =============================
+        String normalized = dependencyExtractor.normalize(preProcess(sourceCode));
+        StructuralObjectExtractor.Structure structure = structuralExtractor.extract(sourceCode);
+        List<SubprogramNode> subprograms =
+                subprogramExtractor.extract(sourceCode, structure.name());
 
         List<String> readTables = semanticExtractor.extractReadTables(normalized);
-
-        log.debug("READ TABLES FINAL >>> {}", readTables);
-
-        // =============================
-        // WRITE TABLES
-        // =============================
-
         List<String> writeTables = semanticExtractor.extractWriteTables(normalized);
-
-        log.debug("WRITE TABLES FINAL >>> {}", writeTables);
-
-        // =============================
-        // SEMANTIC MODEL
-        // =============================
-
-        SqlSemanticModel semanticModel = buildSemanticModel(normalized);
-
+        SqlSemanticModel semanticModel = semanticModelExtractor.extract(normalized);
         riskAnalyzer.analyzeRisks(semanticModel);
 
-        // =============================
-        // KNOWLEDGE RELATIONS
-        // =============================
+        String analysisId = UUID.randomUUID().toString();
         List<KnowledgeRelation> knowledgeRelations =
-                graphRelationExtractor.extractKnowledgeRelations(sourceCode, name, subprograms);
-
-        // =============================
-        // CURSOR METADATA
-        // =============================
-
-        List<CursorMetadata> cursors = cursorSemanticExtractor.extractCursors(normalized);
-
-        ExceptionSemanticExtractor exceptionExtractor = new ExceptionSemanticExtractor();
-
-        List<ExceptionMetadata> exceptions = exceptionExtractor.extract(normalized);
-
-        // Business rules require original literals.
-        // Do NOT use preProcess() because it strips
-        // RAISE_APPLICATION_ERROR messages.
-        BusinessRuleExtractor businessRuleExtractor = new BusinessRuleExtractor();
-
+                graphRelationExtractor.extractKnowledgeRelations(
+                        sourceCode, structure.name(), subprograms, analysisId);
+        CursorAndExceptionExtractor.Result executionMetadata =
+                cursorAndExceptionExtractor.extract(normalized);
         List<BusinessRuleMetadata> businessRules = businessRuleExtractor.extract(sourceCode);
+        List<DbLinkMetadata> dbLinks = dbLinkExtractor.extract(sourceCode);
+        List<String> referencedTables = Stream.concat(readTables.stream(), writeTables.stream())
+                .distinct().toList();
 
-        log.info("BUSINESS RULES DETECTED >>> {}", businessRules);
-
-        log.info("BUSINESS RULES DETECTED >>> {}", businessRules);
-
-        log.info("EXCEPTIONS DETECTED >>> {}", exceptions);
-
-        log.debug("CURSORS DETECTED >>> {}", cursors);
-        log.info("CURSORS DETECTED >>> {}", cursors);
-
-
-
-        // =============================
-        // REFERENCED TABLES
-        // =============================
-
-        List<String> referencedTables =
-                Stream.concat(readTables.stream(), writeTables.stream()).distinct().toList();
-
-        log.debug("REFERENCED TABLES BEFORE OBJECT >>> {}", referencedTables);
-
-      DbLinkSemanticExtractor dbLinkExtractor =
-        new DbLinkSemanticExtractor();
-
-List<DbLinkMetadata> dbLinks =
-        dbLinkExtractor.extract(sourceCode);
-
-        log.info("DBLINKS DETECTED >>> {}", dbLinks);
+        log.debug("Parsed {} {}: subprograms={}, tables={}, relations={}, cursors={}, exceptions={}, dbLinks={}",
+                structure.type(), structure.name(), subprograms.size(), referencedTables.size(),
+                knowledgeRelations.size(), executionMetadata.cursors().size(),
+                executionMetadata.exceptions().size(), dbLinks.size());
 
         return new LegacyObject(
-
-                UUID.randomUUID().toString(),
-
-                name,
-
-                type,
-
-                procedures,
-
-                referencedTables,
-
-                subprograms,
-
-                cursors,
-                
-                businessRules,
-
-                exceptions,
-
-                dbLinks,
-
-                knowledgeRelations,
-
-                sourceCode,
-
+                analysisId, structure.name(), structure.type(), structure.procedures(),
+                referencedTables, subprograms, executionMetadata.cursors(), businessRules,
+                executionMetadata.exceptions(), dbLinks, knowledgeRelations, sourceCode,
                 semanticModel.getFindings().stream().map(RiskFinding::toString).toList(),
-
-                semanticModel.getRiskScore(),
-
-                semanticModel.getRiskLevel(),
-
-                buildSummary(type, name, referencedTables, semanticModel));
+                semanticModel.getRiskScore(), semanticModel.getRiskLevel(),
+                buildSummary(structure.type(), structure.name(), referencedTables, semanticModel));
     }
 
-    private String buildSummary(String type, String name, List<String> referencedTables,
-            SqlSemanticModel model) {
-
-        return String.format("The %s %s interacts with %d tables and has a risk level of %s.", type,
-                name, referencedTables.size(), model.getRiskLevel());
-    }
-
-
+    @Override
     public List<String> extractSemanticRelations(String sql) {
-
-        log.debug("NEW SEMANTIC RELATIONS RUNNING");
-
-        Set<String> relations = new LinkedHashSet<>();
-
-        sql = normalizeSql(sql);
-
-        String mainTable = detectMainTable(sql);
-
-        String[] statements = sql.split(";");
-
-        for (String stmt : statements) {
-
-            log.debug("STATEMENT >>> {}", stmt);
-
-            // =============================
-            // UPDATE RELATIONS
-            // =============================
-
-            Matcher updateMatcher = UPDATE_PATTERN.matcher(stmt);
-
-            if (updateMatcher.find()) {
-
-                String target = clean(updateMatcher.group(1));
-
-                if (semanticExtractor.isValidTable(target) && mainTable != null
-                        && !target.equals(mainTable)) {
-
-                    relations.add(mainTable + "->" + target);
-                }
-            }
-
-            // =============================
-            // INSERT RELATIONS
-            // =============================
-
-            Matcher insertMatcher = INSERT_PATTERN.matcher(stmt);
-
-            if (insertMatcher.find()) {
-
-                String target = clean(insertMatcher.group(1));
-
-                if (semanticExtractor.isValidTable(target)) {
-
-                    String fromClause = extractTopLevelFromClause(stmt);
-
-                    log.debug("FROM FOR INSERT >>> {}", fromClause);
-
-                    Set<String> sources = extractTables(fromClause);
-
-                    log.debug("INSERT SOURCES >>> {}", sources);
-
-                    for (String src : sources) {
-
-                        if (!src.equals(target)) {
-
-                            relations.add(src + "->" + target);
-                        }
-                    }
-                }
-            }
-
-            // ==========================================
-            // SELECT / JOIN RELATIONS (CORREGIDO PARA IMPLÍCITOS)
-            // ==========================================
-            String fromClause = extractTopLevelFromClause(stmt);
-            log.debug("FROM FOR REL >>> {}", fromClause);
-
-            if (fromClause != null && !fromClause.isBlank()) {
-
-                // 1. Obtenemos las referencias reales (Tabla + Alias si existe)
-                List<TableReference> references = extractTableReferences(fromClause);
-
-                // 2. Extraemos solo los nombres reales de las tablas ignorando los alias
-                // individuales
-                List<String> realTables = references.stream().map(TableReference::getFullName) // Toma
-                                                                                               // el
-                                                                                               // nombre
-                                                                                               // real,
-                                                                                               // ej:
-                                                                                               // "PRODUCTOS"
-                        .map(this::clean).filter(semanticExtractor::isValidTable).distinct()
-                        .toList();
-
-                log.debug("REAL TABLES FOR COUPLING >>> {}", realTables);
-
-                // 3. Generamos las relaciones entre las tablas de la consulta
-                for (int i = 0; i < realTables.size(); i++) {
-                    for (int j = i + 1; j < realTables.size(); j++) {
-                        String left = realTables.get(i);
-                        String right = realTables.get(j);
-
-                        if (!left.equals(right)) {
-                            relations.add(left + "->" + right);
-                        }
-                    }
-                }
-            }
-        }
-
-        log.debug("RELATIONS >>> {}", relations);
-
-        return new ArrayList<>(relations);
+        return dependencyExtractor.extract(sql);
     }
-
-    // =============================
-    // DETECT MAIN TABLE
-    // =============================
-    private String detectMainTable(String normalized) {
-
-        // PRIORIDAD 1:
-        // si existe UPDATE, esa suele ser la tabla principal
-
-        Matcher updateMatcher = SIMPLE_UPDATE_PATTERN.matcher(normalized);
-
-
-        if (updateMatcher.find()) {
-
-            String table = clean(updateMatcher.group(1));
-
-            if (semanticExtractor.isValidTable(table)) {
-                return table;
-            }
-        }
-
-        // PRIORIDAD 2:
-        // inferir por frecuencia de lectura
-
-        Map<String, Integer> frequency = new HashMap<>();
-
-        for (String table : semanticExtractor.extractReadTables(normalized)) {
-
-            frequency.put(table, frequency.getOrDefault(table, 0) + 1);
-        }
-
-        return frequency.entrySet().stream().max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey).orElse(null);
-    }
-
-    // =============================
-    // HELPERS
-    // =============================
 
     public String extractTopLevelFromClause(String sql) {
-
-        String normalized = sql.replaceAll("\\s+", " ").trim();
-
-        Pattern fromPattern = Pattern.compile("\\bFROM\\b", Pattern.CASE_INSENSITIVE);
-
-        Matcher matcher = fromPattern.matcher(normalized);
-
-        if (!matcher.find()) {
-            return "";
-        }
-
-        int fromIndex = matcher.end();
-
-        int depth = 0;
-
-        StringBuilder fromClause = new StringBuilder();
-
-        for (int i = fromIndex; i < normalized.length(); i++) {
-
-            char current = normalized.charAt(i);
-
-            if (current == '(') {
-                depth++;
-            }
-
-            if (current == ')') {
-                depth--;
-            }
-
-            if (depth == 0) {
-
-                String remaining = normalized.substring(i).toUpperCase();
-
-                if (remaining.startsWith("WHERE ") || remaining.startsWith("GROUP BY ")
-                        || remaining.startsWith("ORDER BY ") || remaining.startsWith("CONNECT BY ")
-                        || remaining.startsWith("HAVING ") || remaining.startsWith("UNION ")
-                        || remaining.startsWith("INTERSECT ") || remaining.startsWith("MINUS ")
-                        || remaining.startsWith(";")) {
-
-                    break;
-                }
-            }
-
-            fromClause.append(current);
-        }
-
-        return fromClause.toString().trim();
+        return joinExtractor.extractTopLevelFromClause(sql);
     }
-
-    //////
-    ///
-    ///
-    private List<String> splitTopLevelComma(String text) {
-
-        List<String> result = new ArrayList<>();
-
-        StringBuilder current = new StringBuilder();
-
-        int depth = 0;
-
-        for (int i = 0; i < text.length(); i++) {
-
-            char c = text.charAt(i);
-
-            if (c == '(') {
-                depth++;
-            }
-
-            if (c == ')') {
-                depth--;
-            }
-
-            if (c == ',' && depth == 0) {
-
-                result.add(current.toString().trim());
-
-                current.setLength(0);
-
-                continue;
-            }
-
-            current.append(c);
-        }
-
-        if (!current.isEmpty()) {
-
-            result.add(current.toString().trim());
-        }
-
-        return result;
-    }
-
-    private String normalizeSql(String sql) {
-
-        return sql.replace("\r", " ").replace("\n", " ").replaceAll("\\s+", " ").trim()
-                .toUpperCase();
-    }
-
-
-
-    private Set<String> extractTables(String clause) {
-
-        Set<String> tables = new HashSet<>();
-
-        if (clause == null || clause.isBlank()) {
-            return tables;
-        }
-
-        // Usamos la lógica de TableReference que ya sabe separar perfectamente Tabla de Alias
-        List<TableReference> references = extractTableReferences(clause);
-
-        for (TableReference ref : references) {
-            if (ref.getFullName() != null) {
-                String table = clean(ref.getFullName().toUpperCase());
-
-                if (semanticExtractor.isValidTable(table)) {
-                    tables.add(table);
-                    log.debug("EXTRACTED REAL TABLE FROM REF >>> {}", table);
-                }
-            }
-        }
-
-        // Procesar subconsultas remanentes si empiezan con paréntesis
-        List<String> parts = splitTopLevelComma(clause);
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (trimmed.startsWith("(")) {
-                List<String> nestedTables = semanticExtractor.extractReadTables(trimmed);
-                tables.addAll(nestedTables);
-            }
-        }
-
-        return tables;
-    }
-
 
     public List<TableReference> extractTableReferences(String clause) {
-
-        List<TableReference> references = new ArrayList<>();
-
-        if (clause == null || clause.isBlank()) {
-            return references;
-        }
-
-        List<String> parts = splitTopLevelComma(clause);
-
-        for (String part : parts) {
-
-            String trimmed = part.trim();
-
-            if (trimmed.startsWith("(")) {
-                continue;
-            }
-
-            String[] tokens = trimmed.split("\\s+");
-
-            if (tokens.length == 0) {
-                continue;
-            }
-
-            String table = clean(tokens[0]);
-
-            String alias = null;
-
-            if (tokens.length > 1) {
-
-                String possibleAlias = tokens[1].toUpperCase();
-
-                if (!possibleAlias.equals("INNER") && !possibleAlias.equals("LEFT")
-                        && !possibleAlias.equals("RIGHT") && !possibleAlias.equals("JOIN")
-                        && !possibleAlias.equals("ON")) {
-
-                    alias = possibleAlias;
-                }
-            }
-
-            references.add(new TableReference(table, alias));
-
-            log.debug("TABLE REF >>> {} alias={}", table, alias);
-        }
-
-
-        Pattern joinPattern = Pattern.compile(
-                "\\bJOIN\\s+([A-Z][A-Z0-9_.$#@]*(?:\\.[A-Z][A-Z0-9_.$#@]*)?)\\s+([A-Z][A-Z0-9_]*)",
-                Pattern.CASE_INSENSITIVE);
-
-        Matcher joinMatcher = joinPattern.matcher(clause);
-
-        while (joinMatcher.find()) {
-
-            String table = clean(joinMatcher.group(1));
-
-            String alias = joinMatcher.group(2);
-
-            references.add(new TableReference(table, alias));
-
-            log.debug("JOIN TABLE REF >>> {} alias={}", table, alias);
-        }
-
-
-        return references;
+        return joinExtractor.extractTableReferences(clause);
     }
 
     public List<JoinCondition> extractJoinConditions(String sql) {
-
-        List<JoinCondition> conditions = new ArrayList<>();
-
-        sql = sql.replaceAll("\\(\\+\\)", "");
-
-        Pattern joinPattern = Pattern.compile(
-                "([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*=\\s*([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)",
-                Pattern.CASE_INSENSITIVE);
-
-        Matcher matcher = joinPattern.matcher(sql.toUpperCase());
-
-        while (matcher.find()) {
-
-            String leftAlias = matcher.group(1);
-
-            String leftColumn = matcher.group(2);
-
-            String rightAlias = matcher.group(3);
-
-            String rightColumn = matcher.group(4);
-
-            // =========================================
-            // IGNORE INVALID / GHOST ALIASES
-            // =========================================
-
-            if (!isValidSqlAlias(leftAlias) || !isValidSqlAlias(rightAlias)) {
-
-                log.warn("IGNORING INVALID JOIN ALIAS >>> {} -> {}", leftAlias, rightAlias);
-
-                continue;
-            }
-
-            JoinCondition condition =
-                    new JoinCondition(leftAlias, leftColumn, rightAlias, rightColumn);
-
-            conditions.add(condition);
-
-            log.debug("JOIN CONDITION >>> {}", condition);
-        }
-
-        return conditions;
+        return joinExtractor.extractJoinConditions(sql);
     }
 
-    // =========================================
-    // VALID SQL ALIAS
-    // =========================================
-
-    private boolean isValidSqlAlias(String alias) {
-
-        if (alias == null || alias.isBlank()) {
-
-            return false;
-        }
-
-        alias = alias.toUpperCase();
-
-        // Ignore obvious invalid aliases
-
-        if (Set.of("SELECT", "FROM", "WHERE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON",
-                "AND", "OR").contains(alias)) {
-
-            return false;
-        }
-
-        // Ignore suspicious fake aliases like XX
-
-        if (alias.matches("X{2,}")) {
-
-            return false;
-        }
-
-        return true;
-    }
-
-    public void resolveJoinConditions(List<TableReference> references,
-            List<JoinCondition> conditions) {
-
-        Map<String, String> aliasMap = new HashMap<>();
-
-        for (TableReference ref : references) {
-
-            if (ref.getAlias() != null) {
-
-                aliasMap.put(ref.getAlias().toUpperCase(), ref.getFullName());
-            }
-        }
-
-        log.debug("ALIAS MAP >>> {}", aliasMap);
-
-        for (JoinCondition condition : conditions) {
-
-            String leftTable = aliasMap.get(condition.getLeftAlias().toUpperCase());
-
-            String rightTable = aliasMap.get(condition.getRightAlias().toUpperCase());
-
-            // =========================================
-            // INVALID ALIAS VALIDATION
-            // =========================================
-
-            if (leftTable == null || rightTable == null) {
-
-                log.warn("INVALID JOIN ALIAS DETECTED >>> {} -> {}", condition.getLeftAlias(),
-                        condition.getRightAlias());
-
-                continue;
-            }
-
-            log.debug("RESOLVED JOIN >>> {}.{} -> {}.{}", leftTable, condition.getLeftColumn(),
-                    rightTable, condition.getRightColumn());
-        }
+    public void resolveJoinConditions(
+            List<TableReference> references, List<JoinCondition> conditions) {
+        joinExtractor.resolveJoinConditions(references, conditions);
     }
 
     public SqlSemanticModel buildSemanticModel(String sql) {
-
-
-        SqlSemanticModel model = new SqlSemanticModel();
-
-        String normalized = normalizeSql(sql);
-
-
-        model.setOriginalSql(sql);
-
-        List<String> readTables = semanticExtractor.extractReadTables(normalized);
-
-        List<String> writeTables = semanticExtractor.extractWriteTables(normalized);
-
-        List<String> semanticRelations = extractSemanticRelations(normalized);
-
-        String fromClause = extractTopLevelFromClause(normalized);
-
-        List<TableReference> references = extractTableReferences(fromClause);
-
-        List<JoinCondition> joins = extractJoinConditions(normalized);
-
-        model.setReadTables(readTables);
-
-        model.setWriteTables(writeTables);
-
-        model.setSemanticRelations(semanticRelations);
-
-        model.setTableReferences(references);
-
-        model.setJoinConditions(joins);
-
-        riskAnalyzer.analyzeRisks(model);
-
-        return model;
+        return semanticModelExtractor.extract(sql);
     }
-
-
 
     public boolean hasDeleteWithoutWhere(String sql) {
-
-        Matcher deleteMatcher = DELETE_PATTERN.matcher(sql);
-
-        while (deleteMatcher.find()) {
-
-            int deleteStart = deleteMatcher.start();
-
-            int nextSemicolon = sql.indexOf(";", deleteStart);
-
-            String statement;
-
-            if (nextSemicolon == -1) {
-
-                statement = sql.substring(deleteStart);
-
-            } else {
-
-                statement = sql.substring(deleteStart, nextSemicolon);
-            }
-
-            if (!statement.contains(" WHERE ")) {
-
-                log.debug("DELETE WITHOUT WHERE >>> {}", statement);
-
-                return true;
-            }
-        }
-
-        return false;
+        return semanticModelExtractor.hasDeleteWithoutWhere(sql);
     }
 
+    private String buildSummary(
+            String type, String name, List<String> referencedTables, SqlSemanticModel model) {
+        return String.format("The %s %s interacts with %d tables and has a risk level of %s.",
+                type, name, referencedTables.size(), model.getRiskLevel());
+    }
 
-
-    // FIN MOD
-
-    // =============================
-    // PRE PROCESS
-    // =============================
     private String preProcess(String source) {
-
-    if (source == null) {
-        return "";
+        return source.replaceAll("/\\*.*?\\*/", " ")
+                .replaceAll("--.*?(\\r?\\n)", " ")
+                .replaceAll("'(?:''|[^'])*'", "''");
     }
-
-    source = source.replaceAll("/\\*.*?\\*/", " ");
-
-    source = source.replaceAll("--.*?(\\r?\\n)", " ");
-
-    source = source.replaceAll("'(?:''|[^'])*'", "''");
-
-    return source;
-}
-
-
-    /*
-     * private boolean isValidTable(String table) {
-     * 
-     * if (table == null || table.isBlank()) {
-     * 
-     * return false; }
-     * 
-     * table = table.trim().toUpperCase();
-     * 
-     * // ============================================= // BASIC HARDENING //
-     * =============================================
-     * 
-     * if (table.length() <= 2) {
-     * 
-     * return false; }
-     * 
-     * // ============================================= // SQL / NOISE BLACKLIST //
-     * =============================================
-     * 
-     * Set<String> blackList = Set.of(
-     * 
-     * "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "JOIN",
-     * "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY", "BEGIN", "END",
-     * "NULL", "LOOP", "FOR", "IN", "EXCEPTION", "WHEN", "OTHERS", "IS", "AS", "DE", "COMENTARIO",
-     * "INSERTAR", "ACTUALIZAR", "ESCRITURA", "TABLA");
-     * 
-     * if (blackList.contains(table)) {
-     * 
-     * return false; }
-     * 
-     * // ============================================= // ENTERPRISE TABLE PATTERN // Supports: //
-     * CLIENTES // STOCK_DEPOSITO // ERP.PEDIDOS // CRM.CLIENTES //
-     * =============================================
-     * 
-     * return table.matches(
-     * 
-     * "[A-Z][A-Z0-9_#$@]*" + "(\\.[A-Z][A-Z0-9_#$@]*)?"); }
-     */
-
-    private String clean(String table) {
-
-        return table.replaceAll("[^A-Z0-9_.$#@]", "");
-    }
-
-    private void detectSubprogramCalls(List<SubprogramNode> subprograms) {
-
-        for (SubprogramNode source : subprograms) {
-
-            String body = source.getBody();
-
-            if (body == null) {
-                continue;
-            }
-
-            for (SubprogramNode candidate : subprograms) {
-
-                if (source == candidate) {
-                    continue;
-                }
-
-                String candidateName = candidate.getName();
-
-                if (body.contains(candidateName + "(")) {
-
-                    source.getCalls().add(candidateName);
-                }
-            }
-        }
-    }
-
 }

@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.ignacio.legacyanalyzer.domain.model.CursorMetadata;
+import com.ignacio.legacyanalyzer.domain.services.semantic.CursorSemanticExtractor;
 
 class CursorSemanticExtractorTest {
 

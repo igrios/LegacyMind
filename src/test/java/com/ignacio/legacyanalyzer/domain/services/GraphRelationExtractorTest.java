@@ -2,10 +2,13 @@ package com.ignacio.legacyanalyzer.domain.services;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
+import com.ignacio.legacyanalyzer.domain.services.semantic.GraphRelationExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.SqlSemanticExtractor;
 
 class GraphRelationExtractorTest {
 
@@ -20,6 +23,33 @@ class GraphRelationExtractorTest {
         graphRelationExtractor =
                 new GraphRelationExtractor(
                         semanticExtractor);
+    }
+
+    @Test
+    void should_capture_graph_rag_evidence_with_original_oracle_syntax() {
+        String sourceCode = """
+                CREATE OR REPLACE PROCEDURE SP_REPORTE IS
+                BEGIN
+                    SELECT p.id
+                    FROM PRODUCTOS p, STOCK s
+                    WHERE p.id = s.producto_id(+);
+                END;
+                """;
+
+        KnowledgeRelation relation = graphRelationExtractor.extractKnowledgeRelations(
+                        sourceCode, "SP_REPORTE", List.of(), "analysis-evidence")
+                .stream()
+                .filter(candidate -> candidate.relation().equals("READS"))
+                .filter(candidate -> candidate.target().equals("STOCK"))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("SP_REPORTE", relation.sourceObject());
+        assertEquals("analysis-evidence", relation.analysisId());
+        assertEquals(0.8d, relation.confidenceLevel());
+        assertTrue(relation.sourceLineStart() > 0);
+        assertTrue(relation.sourceLineEnd() >= relation.sourceLineStart());
+        assertTrue(relation.codeSnippet().contains("s.producto_id(+)"));
     }
 
     @Test

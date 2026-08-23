@@ -17,6 +17,7 @@ import com.ignacio.legacyanalyzer.application.dto.AnalyzeLegacyResponse;
 import com.ignacio.legacyanalyzer.application.dto.ImpactAnalysisResponse;
 import com.ignacio.legacyanalyzer.application.dto.MetadataResponse;
 import com.ignacio.legacyanalyzer.application.mapper.LegacyObjectMapper;
+import com.ignacio.legacyanalyzer.application.usecase.AnalyzeLegacyUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.DeleteDatabaseUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactByLevelsUseCase;
 import com.ignacio.legacyanalyzer.application.usecase.GetImpactGraphUseCase;
@@ -29,14 +30,10 @@ import com.ignacio.legacyanalyzer.domain.model.ExceptionMetadata;
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SubprogramNode;
-import com.ignacio.legacyanalyzer.domain.model.TableDependency;
-import com.ignacio.legacyanalyzer.domain.ports.TableDependencyRepositoryPort;
-import com.ignacio.legacyanalyzer.domain.services.DependencyAnalyzerService;
-import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
-import com.ignacio.legacyanalyzer.domain.services.ImpactAnalyzer;
-import com.ignacio.legacyanalyzer.infrastructure.adapters.output.parser.RegexLegacyParserAdapter;
-import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationEntity;
-import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.KnowledgeRelationRepository;
+import com.ignacio.legacyanalyzer.domain.services.graph.ImpactAnalysisService;
+import com.ignacio.legacyanalyzer.domain.services.graph.ImpactAnalyzer;
+//import com.ignacio.legacyanalyzer.domain.services.ImpactAnalysisService;
+//import com.ignacio.legacyanalyzer.domain.services.ImpactAnalyzer;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
 
 @CrossOrigin(origins = "*")
@@ -44,38 +41,30 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.Leg
 @RequestMapping("/api/legacy")
 public class LegacyController {
 
-        private final RegexLegacyParserAdapter parserAdapter;
+        private final AnalyzeLegacyUseCase analyzeLegacyUseCase;
         private final LegacyObjectRepository repository;
         private final GetImpactUseCase getImpactUseCase;
-        private final TableDependencyRepositoryPort dependencyPort;
-        private final DependencyAnalyzerService analyzerService;
         private final GetImpactByLevelsUseCase getImpactByLevelsUseCase;
         private final ImpactAnalysisService impactService;
         private final GetImpactGraphUseCase getImpactGraphUseCase;
-        private final KnowledgeRelationRepository knowledgeRelationRepository;
         private final DeleteDatabaseUseCase deleteDatabaseUseCase;
         private final GetKnowledgeGraphUseCase getKnowledgeGraphUseCase;
 
         public LegacyController(LegacyObjectRepository repository,
-                        RegexLegacyParserAdapter parserAdapter, GetImpactUseCase getImpactUseCase,
-                        TableDependencyRepositoryPort dependencyPort,
-                        DependencyAnalyzerService analyzerService,
+                        AnalyzeLegacyUseCase analyzeLegacyUseCase,
+                        GetImpactUseCase getImpactUseCase,
                         GetImpactByLevelsUseCase getImpactByLevelsUseCase,
                         ImpactAnalysisService impactService,
                         GetImpactGraphUseCase getImpactGraphUseCase,
-                        KnowledgeRelationRepository knowledgeRelationRepository,
                         DeleteDatabaseUseCase deleteDatabaseUseCase,
                         GetKnowledgeGraphUseCase getKnowledgeGraphUseCase) {
 
                 this.repository = repository;
-                this.parserAdapter = parserAdapter;
+                this.analyzeLegacyUseCase = analyzeLegacyUseCase;
                 this.getImpactUseCase = getImpactUseCase;
-                this.dependencyPort = dependencyPort;
-                this.analyzerService = analyzerService;
                 this.getImpactByLevelsUseCase = getImpactByLevelsUseCase;
                 this.impactService = impactService;
                 this.getImpactGraphUseCase = getImpactGraphUseCase;
-                this.knowledgeRelationRepository = knowledgeRelationRepository;
                 this.deleteDatabaseUseCase = deleteDatabaseUseCase;
                 this.getKnowledgeGraphUseCase = getKnowledgeGraphUseCase;
         }
@@ -90,55 +79,9 @@ public class LegacyController {
                         return ResponseEntity.badRequest().build();
                 }
 
-                LegacyObject object = parserAdapter.parse(request.getSourceCode());
+                LegacyObject object = analyzeLegacyUseCase.execute(request.getSourceCode());
 
-                object.getKnowledgeRelations().forEach(relation -> {
-
-                        boolean exists = knowledgeRelationRepository
-                                        .existsBySourceAndRelationAndTarget(
-
-                                                        relation.source(),
-
-                                                        relation.relation(),
-
-                                                        relation.target());
-
-                        if (!exists) {
-
-                                knowledgeRelationRepository.save(
-
-                                                new KnowledgeRelationEntity(
-
-                                                                relation.source(),
-
-                                                                relation.relation(),
-
-                                                                relation.target()));
-                        }
-                });
-
-
-                List<String> relations =
-                                parserAdapter.extractSemanticRelations(request.getSourceCode());
-
-                List<TableDependency> dependencies =
-                                analyzerService.buildFromRelations(relations, object.getName());
-
-                if (dependencies != null) {
-                        dependencyPort.saveAllDependencies(dependencies);
-                }
-
-                LegacyObjectMapper mapper = new LegacyObjectMapper();
-
-                repository.save(mapper.toEntity(object));
-
-                return ResponseEntity.ok(new AnalyzeLegacyResponse(object.getName(),
-                                object.getType(), object.getProcedures(),
-                                object.getReferencedTables(), object.getCodeSmells(),
-                                object.getRiskScore(), object.getRiskLevel(),
-                                object.getFunctionalSummary(), object.getSubprograms(),
-                                object.getCursors(), object.getExceptions(), object.getDbLinks(),
-                                object.getBusinessRules(), object.getKnowledgeRelations()));
+                return ResponseEntity.ok(new LegacyObjectMapper().toResponse(object));
         }
 
         @GetMapping("/history")

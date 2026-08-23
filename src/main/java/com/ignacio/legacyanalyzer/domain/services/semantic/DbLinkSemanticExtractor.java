@@ -1,13 +1,14 @@
-package com.ignacio.legacyanalyzer.domain.services;
+package com.ignacio.legacyanalyzer.domain.services.semantic;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import com.ignacio.legacyanalyzer.domain.model.DbLinkMetadata;
+import org.springframework.stereotype.Service;
 
 // Servicio para extraer referencias a DB Links en el código SQL
+@Service
 public class DbLinkSemanticExtractor {
 
     private static final Pattern DBLINK_PATTERN =

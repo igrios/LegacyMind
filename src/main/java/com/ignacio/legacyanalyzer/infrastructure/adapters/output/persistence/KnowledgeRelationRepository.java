@@ -13,6 +13,12 @@ boolean existsBySourceAndRelationAndTarget(
             String target
     );
 
+    boolean existsBySourceAndRelationAndTargetAndAnalysisId(
+            String source,
+            String relation,
+            String target,
+            String analysisId);
+
     List<KnowledgeRelationEntity> findAll();
 
     List<KnowledgeRelationEntity>

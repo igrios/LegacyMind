@@ -13,7 +13,9 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.Leg
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.LegacyObjectRepository;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.SubprogramNodeRepository;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.SubprogramNodeEntity;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class KnowledgeGraphService {
 
@@ -55,30 +57,17 @@ public class KnowledgeGraphService {
 
             subprogram.getSubprogramType()));
 
-                System.out.println(
-        "SUBPROGRAMS SIZE >>> "
-                + subprograms.size());
+        log.debug("SUBPROGRAMS SIZE >>> {}", subprograms.size());
 
                 subprograms.forEach(subprogram ->
 
-        System.out.println(
-
-                subprogram.getSubprogramName()
-
-                        + " -> "
-
-                        + subprogram.getSubprogramType()));
+        log.debug("SUBPROGRAM >>> {} -> {}", subprogram.getSubprogramName(),
+                subprogram.getSubprogramType()));
 
         Set<GraphNode> nodes = new HashSet<>();
 
         List<Map<String, String>> edges = relations.stream().map(relation -> {
-            System.out.println(
-        "SOURCE >>> "
-                + relation.getSource());
-
-System.out.println(
-        "TARGET >>> "
-                + relation.getTarget());
+            log.debug("RELATION >>> {} -> {}", relation.getSource(), relation.getTarget());
 
                 
             nodes.add(          

@@ -18,8 +18,9 @@ import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.ent
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.DbLinkMetadataEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.ExceptionMetadataEntity;
 import com.ignacio.legacyanalyzer.infrastructure.adapters.output.persistence.entity.SubprogramNodeEntity;
+import lombok.extern.slf4j.Slf4j;
 
-
+@Slf4j
 public class LegacyObjectMapper {
 
         public LegacyObjectEntity toEntity(LegacyObject object) {
@@ -82,20 +83,20 @@ public class LegacyObjectMapper {
 
                 cursorEntities.forEach(cursor -> cursor.setLegacyObject(entity));
 
-                System.out.println("CURSOR ENTITIES SIZE >>> " + cursorEntities.size());
+                log.debug("CURSOR ENTITIES SIZE >>> {}", cursorEntities.size());
 
                 cursorEntities.forEach(
-                                c -> System.out.println("CURSOR ENTITY >>> " + c.getCursorName()));
+                                c -> log.debug("CURSOR ENTITY >>> {}", c.getCursorName()));
 
-                System.out.println("CURSOR ENTITIES SIZE >>> " + cursorEntities.size());
+                log.debug("CURSOR ENTITIES SIZE >>> {}", cursorEntities.size());
 
                 exceptionEntities.forEach(exception -> exception.setLegacyObject(entity));
 
-                System.out.println("SUBPROGRAM ENTITIES SIZE >>> " + subprogramEntities.size());
+                log.debug("SUBPROGRAM ENTITIES SIZE >>> {}", subprogramEntities.size());
 
                 dbLinkEntities.forEach(exception -> exception.setLegacyObject(entity));
 
-                System.out.println("SUBPROGRAM ENTITIES SIZE >>> " + subprogramEntities.size());
+                log.debug("SUBPROGRAM ENTITIES SIZE >>> {}", subprogramEntities.size());
                  
                
                 return entity;

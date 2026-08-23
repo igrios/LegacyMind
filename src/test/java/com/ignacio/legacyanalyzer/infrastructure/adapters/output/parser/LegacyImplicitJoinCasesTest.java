@@ -11,10 +11,10 @@ import org.junit.jupiter.api.Test;
 
 import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
-import com.ignacio.legacyanalyzer.domain.services.CursorSemanticExtractor;
-import com.ignacio.legacyanalyzer.domain.services.GraphRelationExtractor;
-import com.ignacio.legacyanalyzer.domain.services.LegacyRiskAnalyzer;
-import com.ignacio.legacyanalyzer.domain.services.SqlSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.risk.LegacyRiskAnalyzer;
+import com.ignacio.legacyanalyzer.domain.services.semantic.CursorSemanticExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.GraphRelationExtractor;
+import com.ignacio.legacyanalyzer.domain.services.semantic.SqlSemanticExtractor;
 
 public class LegacyImplicitJoinCasesTest {
 

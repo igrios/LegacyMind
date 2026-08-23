@@ -1,4 +1,4 @@
-package com.ignacio.legacyanalyzer.domain.services;
+package com.ignacio.legacyanalyzer.domain.services.graph;
 
 import com.ignacio.legacyanalyzer.application.dto.ImpactAnalysisResponse;
 

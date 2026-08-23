@@ -1,7 +1,8 @@
-package com.ignacio.legacyanalyzer.domain.services;
+package com.ignacio.legacyanalyzer.domain.services.semantic;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
@@ -15,274 +16,158 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class GraphRelationExtractor {
 
+    private static final double REGEX_CONFIDENCE = 0.8d;
+
     private final SqlSemanticExtractor semanticExtractor;
 
     public List<KnowledgeRelation> extractKnowledgeRelations(
-        String sourceCode,
-        String objectName,
-        List<SubprogramNode> subprograms){
-
-        // =============================================
-        // NORMALIZATION
-        // =============================================
-
-        String normalized =
-                sourceCode.toUpperCase();
-
-        // =============================================
-        // REMOVE COMMENTS
-        // =============================================
-
-        normalized =
-                normalized.replaceAll(
-                        "--.*?(\\r?\\n|$)",
-                        " ");
-
-        normalized =
-                normalized.replaceAll(
-                        "/\\*.*?\\*/",
-                        " ");
-
-        // =============================================
-        // REMOVE ORACLE OUTER JOIN (+)
-        // =============================================
-
-        normalized =
-                normalized.replaceAll(
-                        "\\(\\+\\)",
-                        "");
-
-        List<KnowledgeRelation> relations =
-                new ArrayList<>();
-
-        // =============================================
-        // CALLS
-        // =============================================
-
-        Pattern callPattern =
-                Pattern.compile(
-                        "\\b([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*\\(",
-                        Pattern.CASE_INSENSITIVE);
-
-        Matcher matcher =
-                callPattern.matcher(normalized);
-
-        while (matcher.find()) {
-
-            String packageName =
-                    matcher.group(1)
-                            .toUpperCase();
-
-            String procedureName =
-                    matcher.group(2)
-                            .toUpperCase();
-
-            // =========================================
-            // IGNORE INVALID SHORT TOKENS
-            // =========================================
-
-            if (packageName.length() < 3) {
-
-                log.warn(
-                        "IGNORING INVALID CALL TOKEN >>> {}",
-                        packageName);
-
-                continue;
-            }
-
-            // =========================================
-            // IGNORE SELF REFERENCES
-            // =========================================
-
-            if (packageName.equals(objectName)) {
-
-                continue;
-            }
-
-            relations.add(
-
-                    new KnowledgeRelation(
-                            objectName,
-                            "CALLS",
-                            packageName));
-
-            log.debug(
-                    "CALL DETECTED >>> {} -> {}.{}",
-                    objectName,
-                    packageName,
-                    procedureName);
-        }
-
-        // =============================================
-        // READS
-        // =============================================
-
-        List<String> readTables =
-                semanticExtractor.extractReadTables(
-                        normalized);
-
-        for (String table : readTables) {
-
-            if (!isValidSemanticObject(table)) {
-
-                continue;
-            }
-
-            relations.add(
-
-                    new KnowledgeRelation(
-                            objectName,
-                            "READS",
-                            table));
-
-            log.debug(
-                    "READ DETECTED >>> {} -> {}",
-                    objectName,
-                    table);
-        }
-
-        // =============================================
-        // WRITES
-        // =============================================
-
-        List<String> writeTables =
-                semanticExtractor.extractWriteTables(
-                        normalized);
-
-        for (String table : writeTables) {
-
-            if (!isValidSemanticObject(table)) {
-
-                continue;
-            }
-
-            relations.add(
-
-                    new KnowledgeRelation(
-                            objectName,
-                            "WRITES",
-                            table));
-
-            log.debug(
-                    "WRITE DETECTED >>> {} -> {}",
-                    objectName,
-                    table);
-        }
-
-for (SubprogramNode subprogram : subprograms) {
-
-    for (String call : subprogram.getCalls()) {
-
-        relations.add(
-
-                new KnowledgeRelation(
-
-                        subprogram.getQualifiedName(),
-
-                        "CALLS",
-
-                        objectName + "." + call
-                )
-        );
-
-        log.debug(
-                "CALL DETECTED >>> {} -> {}",
-                subprogram.getQualifiedName(),
-                call
-        );
+            String sourceCode, String objectName, List<SubprogramNode> subprograms) {
+        return extractKnowledgeRelations(sourceCode, objectName, subprograms,
+                UUID.randomUUID().toString());
     }
-}
 
+    public List<KnowledgeRelation> extractKnowledgeRelations(
+            String sourceCode, String objectName, List<SubprogramNode> subprograms,
+            String analysisId) {
 
+        String normalized = normalizePreservingOffsets(sourceCode);
+        List<KnowledgeRelation> relations = new ArrayList<>();
 
+        Matcher callMatcher = Pattern.compile(
+                "\\b([A-Z][A-Z0-9_]*)\\.([A-Z][A-Z0-9_]*)\\s*\\(",
+                Pattern.CASE_INSENSITIVE).matcher(normalized);
 
-        // =============================================
-        // TRIGGER TARGET
-        // =============================================
+        while (callMatcher.find()) {
+            String packageName = callMatcher.group(1).toUpperCase();
+            if (packageName.length() < 3 || packageName.equals(objectName)) {
+                continue;
+            }
+            relations.add(relation(objectName, "CALLS", packageName,
+                    objectName, sourceCode,
+                    evidenceAround(sourceCode, callMatcher.start(), callMatcher.end()), analysisId));
+        }
 
-        Pattern triggerPattern =
-                Pattern.compile(
-                        "\\bON\\s+([A-Z][A-Z0-9_.$#@]*)",
-                        Pattern.CASE_INSENSITIVE);
+        for (String table : semanticExtractor.extractReadTables(normalized)) {
+            if (isValidSemanticObject(table)) {
+                relations.add(relation(objectName, "READS", table, objectName, sourceCode,
+                        evidenceForTable(sourceCode, table, "READS"), analysisId));
+            }
+        }
 
-        Matcher triggerMatcher =
-                triggerPattern.matcher(normalized);
+        for (String table : semanticExtractor.extractWriteTables(normalized)) {
+            if (isValidSemanticObject(table)) {
+                relations.add(relation(objectName, "WRITES", table, objectName, sourceCode,
+                        evidenceForTable(sourceCode, table, "WRITES"), analysisId));
+            }
+        }
 
-        if (normalized.contains("TRIGGER")
-                && triggerMatcher.find()) {
+        for (SubprogramNode subprogram : subprograms) {
+            for (String call : subprogram.getCalls()) {
+                relations.add(relation(subprogram.getQualifiedName(), "CALLS",
+                        objectName + "." + call, subprogram.getQualifiedName(), sourceCode,
+                        evidenceForToken(sourceCode, call), analysisId));
+            }
+        }
 
-            String targetTable =
-                    triggerMatcher.group(1)
-                            .toUpperCase();
-
+        Matcher triggerMatcher = Pattern.compile(
+                "\\bON\\s+([A-Z][A-Z0-9_.$#@]*)", Pattern.CASE_INSENSITIVE)
+                .matcher(normalized);
+        if (normalized.contains("TRIGGER") && triggerMatcher.find()) {
+            String targetTable = triggerMatcher.group(1).toUpperCase();
             if (isValidSemanticObject(targetTable)) {
-
-                relations.add(
-
-                        new KnowledgeRelation(
-                                objectName,
-                                "TRIGGER_ON",
-                                targetTable));
-
-                log.debug(
-                        "TRIGGER DETECTED >>> {} -> {}",
-                        objectName,
-                        targetTable);
+                relations.add(relation(objectName, "TRIGGER_ON", targetTable, objectName,
+                        sourceCode,
+                        evidenceAround(sourceCode, triggerMatcher.start(), triggerMatcher.end()),
+                        analysisId));
             }
         }
 
-        return relations
-                .stream()
-                .distinct()
-                .toList();
+        return relations.stream().distinct().toList();
     }
 
-    // =============================================
-    // VALIDATION
-    // =============================================
+    private KnowledgeRelation relation(
+            String source, String relation, String target, String sourceObject,
+            String sourceCode, Evidence evidence, String analysisId) {
+
+        Evidence resolved = evidence != null ? evidence : new Evidence(0, sourceCode.length());
+        return new KnowledgeRelation(source, relation, target, sourceObject,
+                lineAt(sourceCode, resolved.start()),
+                lineAt(sourceCode, Math.max(resolved.start(), resolved.end() - 1)),
+                sourceCode.substring(resolved.start(), resolved.end()),
+                REGEX_CONFIDENCE, analysisId);
+    }
+
+    private Evidence evidenceForTable(String sourceCode, String table, String relation) {
+        String keywords = relation.equals("WRITES")
+                ? "(?:INSERT\\s+INTO|UPDATE|DELETE\\s+FROM|MERGE\\s+INTO)"
+                : "(?:FROM|JOIN)";
+        Matcher matcher = Pattern.compile(
+                "(?i)\\b" + keywords + "\\s+" + Pattern.quote(table) + "\\b")
+                .matcher(sourceCode);
+        return matcher.find()
+                ? evidenceAround(sourceCode, matcher.start(), matcher.end())
+                : evidenceForToken(sourceCode, table);
+    }
+
+    private Evidence evidenceForToken(String sourceCode, String token) {
+        Matcher matcher = Pattern.compile("(?i)\\b" + Pattern.quote(token) + "\\b")
+                .matcher(sourceCode);
+        return matcher.find() ? evidenceAround(sourceCode, matcher.start(), matcher.end()) : null;
+    }
+
+    private Evidence evidenceAround(String sourceCode, int matchStart, int matchEnd) {
+        int start = sourceCode.lastIndexOf(';', Math.max(0, matchStart - 1));
+        start = start < 0 ? 0 : start + 1;
+        int end = sourceCode.indexOf(';', matchEnd);
+        end = end < 0 ? sourceCode.length() : end + 1;
+        while (start < end && Character.isWhitespace(sourceCode.charAt(start))) {
+            start++;
+        }
+        while (end > start && Character.isWhitespace(sourceCode.charAt(end - 1))) {
+            end--;
+        }
+        return new Evidence(start, end);
+    }
+
+    private int lineAt(String sourceCode, int offset) {
+        int line = 1;
+        for (int i = 0; i < offset && i < sourceCode.length(); i++) {
+            if (sourceCode.charAt(i) == '\n') {
+                line++;
+            }
+        }
+        return line;
+    }
+
+    private String normalizePreservingOffsets(String sourceCode) {
+        char[] chars = sourceCode.toUpperCase().toCharArray();
+        mask(chars, Pattern.compile("--[^\\r\\n]*").matcher(new String(chars)));
+        mask(chars, Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL).matcher(new String(chars)));
+        mask(chars, Pattern.compile("\\(\\+\\)").matcher(new String(chars)));
+        return new String(chars);
+    }
+
+    private void mask(char[] chars, Matcher matcher) {
+        while (matcher.find()) {
+            for (int i = matcher.start(); i < matcher.end(); i++) {
+                if (chars[i] != '\n' && chars[i] != '\r') {
+                    chars[i] = ' ';
+                }
+            }
+        }
+    }
 
     private boolean isValidSemanticObject(String value) {
-
         if (value == null || value.isBlank()) {
-
             return false;
         }
+        String normalized = value.toUpperCase().trim();
+        return normalized.length() >= 3 && !List.of(
+                "SELECT", "FROM", "WHERE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER",
+                "ON", "AND", "OR", "END", "IS", "AS", "BY", "IN", "TO")
+                .contains(normalized);
+    }
 
-        value =
-                value.toUpperCase()
-                        .trim();
-
-        // =========================================
-        // IGNORE SHORT TOKENS
-        // =========================================
-
-        if (value.length() < 3) {
-
-            return false;
-        }
-
-        // =========================================
-        // IGNORE SQL KEYWORDS
-        // =========================================
-
-        return !List.of(
-                "SELECT",
-                "FROM",
-                "WHERE",
-                "JOIN",
-                "LEFT",
-                "RIGHT",
-                "INNER",
-                "OUTER",
-                "ON",
-                "AND",
-                "OR",
-                "END",
-                "IS",
-                "AS",
-                "BY",
-                "IN",
-                "TO")
-                .contains(value);
+    private record Evidence(int start, int end) {
     }
 }
