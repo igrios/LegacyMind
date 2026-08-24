@@ -117,4 +117,11 @@ public class SemanticDependencyExtractor {
         return sql.replace("\r", " ").replace("\n", " ").replaceAll("\\s+", " ")
                 .trim().toUpperCase();
     }
+
+    public String normalizeSourceCode(String sourceCode) {
+        String withoutCommentsAndLiterals = sourceCode.replaceAll("/\\*.*?\\*/", " ")
+                .replaceAll("--.*?(\\r?\\n)", " ")
+                .replaceAll("'(?:''|[^'])*'", "''");
+        return normalize(withoutCommentsAndLiterals);
+    }
 }

@@ -28,9 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class RegexLegacyParserAdapter implements LegacyParserPort {
 
-    private final LegacyRiskAnalyzer riskAnalyzer;
     private final GraphRelationExtractor graphRelationExtractor;
-    private final SqlSemanticExtractor semanticExtractor;
     private final StructuralObjectExtractor structuralExtractor;
     private final SubprogramExtractor subprogramExtractor;
     private final CursorAndExceptionExtractor cursorAndExceptionExtractor;
@@ -42,9 +40,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
 
     @Autowired
     public RegexLegacyParserAdapter(
-            LegacyRiskAnalyzer riskAnalyzer,
             GraphRelationExtractor graphRelationExtractor,
-            SqlSemanticExtractor semanticExtractor,
             StructuralObjectExtractor structuralExtractor,
             SubprogramExtractor subprogramExtractor,
             CursorAndExceptionExtractor cursorAndExceptionExtractor,
@@ -53,9 +49,7 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             OracleJoinExtractor joinExtractor,
             SemanticDependencyExtractor dependencyExtractor,
             SqlSemanticModelExtractor semanticModelExtractor) {
-        this.riskAnalyzer = riskAnalyzer;
         this.graphRelationExtractor = graphRelationExtractor;
-        this.semanticExtractor = semanticExtractor;
         this.structuralExtractor = structuralExtractor;
         this.subprogramExtractor = subprogramExtractor;
         this.cursorAndExceptionExtractor = cursorAndExceptionExtractor;
@@ -75,11 +69,9 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
         OracleJoinExtractor oracleJoinExtractor = new OracleJoinExtractor();
         SemanticDependencyExtractor semanticDependencies =
                 new SemanticDependencyExtractor(semanticExtractor, oracleJoinExtractor);
-        this.riskAnalyzer = riskAnalyzer;
         this.graphRelationExtractor = graphRelationExtractor;
-        this.semanticExtractor = semanticExtractor;
         this.structuralExtractor = new StructuralObjectExtractor();
-        this.subprogramExtractor = new SubprogramExtractor();
+        this.subprogramExtractor = new SubprogramExtractor(semanticExtractor);
         this.cursorAndExceptionExtractor = new CursorAndExceptionExtractor(
                 cursorSemanticExtractor, new ExceptionSemanticExtractor());
         this.dbLinkExtractor = new DbLinkExtractor(new DbLinkSemanticExtractor());
@@ -96,15 +88,12 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
             throw new IllegalArgumentException("Source code cannot be null or empty");
         }
 
-        String normalized = dependencyExtractor.normalize(preProcess(sourceCode));
+        String normalized = dependencyExtractor.normalizeSourceCode(sourceCode);
         StructuralObjectExtractor.Structure structure = structuralExtractor.extract(sourceCode);
         List<SubprogramNode> subprograms =
                 subprogramExtractor.extract(sourceCode, structure.name());
 
-        List<String> readTables = semanticExtractor.extractReadTables(normalized);
-        List<String> writeTables = semanticExtractor.extractWriteTables(normalized);
         SqlSemanticModel semanticModel = semanticModelExtractor.extract(normalized);
-        riskAnalyzer.analyzeRisks(semanticModel);
 
         String analysisId = UUID.randomUUID().toString();
         List<KnowledgeRelation> knowledgeRelations =
@@ -114,8 +103,8 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 cursorAndExceptionExtractor.extract(normalized);
         List<BusinessRuleMetadata> businessRules = businessRuleExtractor.extract(sourceCode);
         List<DbLinkMetadata> dbLinks = dbLinkExtractor.extract(sourceCode);
-        List<String> referencedTables = Stream.concat(readTables.stream(), writeTables.stream())
-                .distinct().toList();
+        List<String> referencedTables = Stream.concat(semanticModel.getReadTables().stream(),
+                semanticModel.getWriteTables().stream()).distinct().toList();
 
         log.debug("Parsed {} {}: subprograms={}, tables={}, relations={}, cursors={}, exceptions={}, dbLinks={}",
                 structure.type(), structure.name(), subprograms.size(), referencedTables.size(),
@@ -167,9 +156,4 @@ public class RegexLegacyParserAdapter implements LegacyParserPort {
                 type, name, referencedTables.size(), model.getRiskLevel());
     }
 
-    private String preProcess(String source) {
-        return source.replaceAll("/\\*.*?\\*/", " ")
-                .replaceAll("--.*?(\\r?\\n)", " ")
-                .replaceAll("'(?:''|[^'])*'", "''");
-    }
 }

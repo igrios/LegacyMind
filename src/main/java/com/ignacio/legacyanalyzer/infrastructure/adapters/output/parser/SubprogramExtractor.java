@@ -21,7 +21,11 @@ public class SubprogramExtractor {
         private static final Pattern FUNCTION_PATTERN =
                         Pattern.compile("(?is)FUNCTION\\s+([A-Z0-9_]+).*?END\\s+\\1\\s*;");
 
-        private final SqlSemanticExtractor semanticExtractor = new SqlSemanticExtractor();
+        private final SqlSemanticExtractor semanticExtractor;
+
+        public SubprogramExtractor(SqlSemanticExtractor semanticExtractor) {
+                this.semanticExtractor = semanticExtractor;
+        }
 
         public List<SubprogramNode> extract(String sourceCode, String packageName) {
 
@@ -44,13 +48,10 @@ public class SubprogramExtractor {
                 while (matcher.find()) {
 
                         String body = matcher.group();
-//String body = matcher.group();
+                        String procedureName = matcher.group(1);
 
-String procedureName = matcher.group(1);
-
-log.debug("Extracted procedure {} with body: {}", procedureName, body);
-
-                      //  String procedureName = matcher.group(1);
+                        log.debug("Extracted procedure {} with body length {}",
+                                        procedureName, body.length());
 
                         SubprogramNode node = new SubprogramNode();
 
