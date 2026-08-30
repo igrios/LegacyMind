@@ -3,6 +3,7 @@ import GraphView from "./components/GraphView";
 import OraclePackageUploader from "./components/OraclePackageUploader";
 import { getKnowledgeGraph } from "./services/api";
 import { buildKnowledgeGraph } from "./utils/knowledgeGraph";
+import NodeDetailsDrawer from "./components/NodeDetailsDrawer";
 
 function App() {
   const [screen, setScreen] = useState("graph");
@@ -63,13 +64,19 @@ function App() {
   // =====================================================
   // NODE CLICK HANDLER
   // =====================================================
-  const handleNodeClick = async (nodeId) => {
+  const handleNodeClick = async (node) => {
+    setSelectedNode(node);
+
+    if (node.data?.type !== "PACKAGE") return;
+
     try {
-      const response = await fetch(`${API_BASE_URL}/object/${nodeId}`);
+      const response = await fetch(`${API_BASE_URL}/object/${encodeURIComponent(node.id)}`);
       if (!response.ok) throw new Error("Error fetching object details");
 
       const details = await response.json();
-      setSelectedNode(details);
+      setSelectedNode((current) => current?.id === node.id
+        ? { ...current, data: { ...current.data, ...details, type: current.data.type } }
+        : current);
     } catch (error) {
       console.error("Error loading node details:", error);
     }
@@ -154,99 +161,7 @@ function App() {
         )}
       </div>
 
-      {/* RIGHT METRICS PANEL (Unificado y blindado de crasheos) */}
-      {selectedNode && (
-        <div
-          style={{
-            width: "340px",
-            background: "#111827",
-            borderLeft: "1px solid #1f2937",
-            padding: "22px",
-            overflow: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: "20px"
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}
-          >
-            <h2 style={{ fontSize: "20px", wordBreak: "break-all", marginRight: "10px" }}>
-              {selectedNode.name}
-            </h2>
-            <button
-              onClick={() => setSelectedNode(null)}
-              style={{
-                background: "#dc2626",
-                border: "none",
-                color: "white",
-                borderRadius: "8px",
-                padding: "8px 12px",
-                cursor: "pointer",
-                fontWeight: "bold"
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          <div style={{ fontSize: "14px", display: "flex", flexDirection: "column", gap: "6px" }}>
-            <p><strong>Type:</strong> {selectedNode.type}</p>
-            <p><strong>Risk Level:</strong> {selectedNode.riskLevel || "LOW"}</p>
-            <p><strong>Risk Score:</strong> {selectedNode.riskScore || 0}</p>
-          </div>
-
-          {/* BUSINESS RULES */}
-          {selectedNode.businessRules?.length > 0 && (
-            <div>
-              <h3 style={{ fontSize: "16px", marginBottom: "10px", color: "#38bdf8" }}>Business Rules</h3>
-              {selectedNode.businessRules.map(rule => (
-                <div
-                  key={rule.errorCode}
-                  style={{
-                    background: "#0f172a",
-                    borderRadius: "12px",
-                    padding: "12px",
-                    marginBottom: "10px",
-                    border: "1px solid #1f2937"
-                  }}
-                >
-                  <strong style={{ color: "#f43f5e" }}>{rule.errorCode}</strong>
-                  <p style={{ fontSize: "13px", marginTop: "4px", color: "#cbd5e1" }}>{rule.message}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* REFERENCED TABLES */}
-          {selectedNode.referencedTables?.length > 0 && (
-            <div>
-              <h3 style={{ fontSize: "16px", marginBottom: "10px", color: "#38bdf8" }}>Referenced Tables</h3>
-              <ul style={{ paddingLeft: "20px", fontSize: "14px", color: "#cbd5e1" }}>
-                {selectedNode.referencedTables.map(table => (
-                  <li key={table} style={{ marginBottom: "4px" }}>{table}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* CODE SMELLS (Se movió ADENTRO del bloque seguro para que no rompa) */}
-          {selectedNode.codeSmells?.length > 0 && (
-            <div>
-              <h3 style={{ fontSize: "16px", marginBottom: "10px", color: "#38bdf8" }}>Code Smells</h3>
-              <ul style={{ paddingLeft: "20px", fontSize: "14px", color: "#f43f5e" }}>
-                {selectedNode.codeSmells.map(smell => (
-                  <li key={smell} style={{ marginBottom: "6px" }}>{smell}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+      <NodeDetailsDrawer node={selectedNode} onClose={() => setSelectedNode(null)} />
     </div>
   );
 }

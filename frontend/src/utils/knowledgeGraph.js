@@ -33,6 +33,7 @@ export function buildKnowledgeGraph(payload = {}) {
     ? payload.knowledgeRelations
     : Array.isArray(payload.edges) ? payload.edges : [];
   const declaredNodes = Array.isArray(payload.nodes) ? payload.nodes : [];
+  const subprograms = Array.isArray(payload.subprograms) ? payload.subprograms : [];
   const nodeTypes = new Map();
 
   declaredNodes.forEach((node) => {
@@ -55,10 +56,45 @@ export function buildKnowledgeGraph(payload = {}) {
   const nodes = [...nodeTypes].map(([id, rawType]) => {
     const nodeType = rawType.toUpperCase();
     const colors = NODE_STYLES[nodeType] || NODE_STYLES.UNKNOWN;
+    const nodeRelations = validRelations.filter(
+      ({ source, target, sourceObject }) =>
+        source === id || target === id || sourceObject === id
+    );
+    const associatedSubprograms = subprograms.filter(({ qualifiedName }) =>
+      qualifiedName === id || qualifiedName?.startsWith(`${id}.`)
+    );
+    const reads = [...new Set(nodeRelations
+      .filter(({ source, relation }) => source === id && relation?.toUpperCase() === "READS")
+      .map(({ target }) => target))];
+    const writes = [...new Set(nodeRelations
+      .filter(({ source, relation }) => source === id && relation?.toUpperCase() === "WRITES")
+      .map(({ target }) => target))];
+    const accessedBy = nodeRelations
+      .filter(({ target, relation }) => target === id && ["READS", "WRITES"].includes(relation?.toUpperCase()))
+      .map(({ source, relation, sourceObject }) => ({
+        name: sourceObject || source,
+        relation: relation.toUpperCase()
+      }));
+    const codeSnippets = [...new Set(nodeRelations
+      .map(({ codeSnippet }) => codeSnippet)
+      .filter(Boolean))];
+
     return {
       id,
       position: { x: 0, y: 0 },
-      data: { label: id, nodeType, degree: degree.get(id) || 0 },
+      data: {
+        label: id,
+        name: id,
+        type: nodeType,
+        nodeType,
+        degree: degree.get(id) || 0,
+        subprograms: associatedSubprograms,
+        relations: nodeRelations,
+        reads,
+        writes,
+        accessedBy,
+        codeSnippets
+      },
       style: {
         ...colors,
         color: "white",

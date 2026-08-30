@@ -39,7 +39,7 @@ export default function GraphView({
 
         onNodeClick={(event, node) => {
 
-          onNodeClick?.(node.id);
+          onNodeClick?.(node);
         }}
 
       >
