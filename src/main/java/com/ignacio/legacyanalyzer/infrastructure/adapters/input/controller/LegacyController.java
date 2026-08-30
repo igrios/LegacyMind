@@ -169,7 +169,7 @@ public class LegacyController {
 
                 LegacyObjectMapper mapper = new LegacyObjectMapper();
 
-                return repository.findByName(name)
+                return repository.findFirstByNameOrderByCreatedAtDesc(name)
 
                                 .map(entity -> ResponseEntity.ok(mapper.toResponse(entity)))
 
@@ -182,7 +182,7 @@ public class LegacyController {
 
                 LegacyObjectMapper mapper = new LegacyObjectMapper();
 
-                return repository.findByName(name)
+                return repository.findFirstByNameOrderByCreatedAtDesc(name)
 
                                 .map(entity ->
 
