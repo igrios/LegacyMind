@@ -20,7 +20,7 @@ public class SqlSemanticExtractor {
       Pattern.compile("\\bFROM\\b", Pattern.CASE_INSENSITIVE);
 
   private static final Pattern JOIN_ALIAS_PATTERN = Pattern.compile(
-      "\\bJOIN\\s+([A-Z][A-Z0-9_.$#@]*(?:\\.[A-Z][A-Z0-9_.$#@]*)?)\\s+([A-Z][A-Z0-9_]*)",
+      "\\bJOIN\\s+([A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?(?:@[A-Z][A-Z0-9_$#]*)?)",
       Pattern.CASE_INSENSITIVE);
 
   private static final Pattern UPDATE_PATTERN = Pattern
@@ -36,19 +36,29 @@ private static final Pattern MERGE_PATTERN =
 
 private static final Pattern USING_PATTERN =
     Pattern.compile(
-        "\\bUSING\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
+        "\\bMERGE\\s+INTO\\s+[A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?"
+            + "(?:@[A-Z][A-Z0-9_$#]*)?\\s+[^;]*?\\bUSING\\s+"
+            + "([A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?(?:@[A-Z][A-Z0-9_$#]*)?)",
         Pattern.CASE_INSENSITIVE);
+
+  private static final Pattern DELETE_PATTERN = Pattern.compile(
+      "\\bDELETE\\s+FROM\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
+      Pattern.CASE_INSENSITIVE);
 
 
   public List<String> extractReadTables(String sourceCode) {
 
     Set<String> tables = new HashSet<>();
 
-    String normalized = sourceCode.toUpperCase();
+    String normalized = maskNonCode(sourceCode).toUpperCase();
 
     Matcher matcher = FROM_PATTERN.matcher(normalized);
 
     while (matcher.find()) {
+
+      if (isDeleteFrom(normalized, matcher.start())) {
+        continue;
+      }
 
       int fromIndex = matcher.start();
 
@@ -128,14 +138,19 @@ while (usingMatcher.find()) {
   public List<String> extractWriteTables(String sourceCode) {
 
     List<String> result = new ArrayList<>();
+    String normalized = maskNonCode(sourceCode).toUpperCase();
 
     // =============================
     // UPDATE
     // =============================
 
-    Matcher updateMatcher = UPDATE_PATTERN.matcher(sourceCode);
+    Matcher updateMatcher = UPDATE_PATTERN.matcher(normalized);
 
     while (updateMatcher.find()) {
+
+      if (isCursorForUpdate(normalized, updateMatcher.start())) {
+        continue;
+      }
 
       String table = updateMatcher.group(1).toUpperCase();
 
@@ -151,7 +166,7 @@ while (usingMatcher.find()) {
     // INSERT INTO
     // =============================
 
-    Matcher insertMatcher = INSERT_PATTERN.matcher(sourceCode);
+    Matcher insertMatcher = INSERT_PATTERN.matcher(normalized);
 
     while (insertMatcher.find()) {
 
@@ -165,7 +180,7 @@ while (usingMatcher.find()) {
       }
     }
 
-Matcher mergeMatcher = MERGE_PATTERN.matcher(sourceCode);
+Matcher mergeMatcher = MERGE_PATTERN.matcher(normalized);
 
 while (mergeMatcher.find()) {
 
@@ -178,6 +193,16 @@ while (mergeMatcher.find()) {
         log.debug("MERGE TARGET TABLE >>> {}", table);
     }
 }
+
+    Matcher deleteMatcher = DELETE_PATTERN.matcher(normalized);
+
+    while (deleteMatcher.find()) {
+      String table = deleteMatcher.group(1).toUpperCase();
+      if (isValidTable(table)) {
+        result.add(table);
+        log.debug("DELETE TABLE >>> {}", table);
+      }
+    }
 
     return result.stream().distinct().toList();
   }
@@ -300,6 +325,17 @@ while (mergeMatcher.find()) {
 
     table = table.trim().toUpperCase();
 
+    String localName = table.contains(".")
+        ? table.substring(table.lastIndexOf('.') + 1)
+        : table;
+    String qualifier = table.contains(".")
+        ? table.substring(0, table.indexOf('.'))
+        : "";
+
+    if (hasVariablePrefix(localName) || hasVariablePrefix(qualifier)) {
+      return false;
+    }
+
     // =============================================
     // BASIC HARDENING
     // =============================================
@@ -317,7 +353,8 @@ while (mergeMatcher.find()) {
 
         "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "JOIN",
         "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY", "BEGIN",
-        "END", "NULL", "IS", "AS", "LOOP", "FOR", "WHEN", "OTHERS", "DE"
+        "END", "NULL", "IS", "AS", "LOOP", "FOR", "WHEN", "OTHERS", "DE", "OF",
+        "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE", "ROWNUM"
 
     ).contains(table)) {
 
@@ -329,7 +366,7 @@ while (mergeMatcher.find()) {
     // STOCK_DEPOSITO
     // =============================================
 
-    if (table.matches("[A-Z][A-Z0-9_#$@]*")) {
+    if (table.matches("[A-Z][A-Z0-9_$#]*(?:@[A-Z][A-Z0-9_$#]*)?")) {
 
       return true;
     }
@@ -339,11 +376,44 @@ while (mergeMatcher.find()) {
     // ERP.PEDIDOS
     // =============================================
 
-    if (table.matches("[A-Z][A-Z0-9_#$@]*\\.[A-Z][A-Z0-9_#$@]*")) {
+    if (table.matches("[A-Z][A-Z0-9_$#]*\\.[A-Z][A-Z0-9_$#]*(?:@[A-Z][A-Z0-9_$#]*)?")) {
 
       return true;
     }
 
     return false;
+  }
+
+  private boolean hasVariablePrefix(String identifier) {
+    return identifier.matches("(?:V|P|R|C)_.+");
+  }
+
+  private boolean isCursorForUpdate(String sql, int updateStart) {
+    String prefix = sql.substring(Math.max(0, updateStart - 20), updateStart);
+    return prefix.matches("(?s).*\\bFOR\\s+$");
+  }
+
+  private boolean isDeleteFrom(String sql, int fromStart) {
+    String prefix = sql.substring(Math.max(0, fromStart - 20), fromStart);
+    return prefix.matches("(?s).*\\bDELETE\\s+$");
+  }
+
+  private String maskNonCode(String sourceCode) {
+    StringBuilder masked = new StringBuilder(sourceCode);
+    maskMatches(masked, Pattern.compile("--[^\\r\\n]*").matcher(sourceCode));
+    maskMatches(masked, Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL).matcher(masked));
+    maskMatches(masked, Pattern.compile("'(?:''|[^'])*'").matcher(masked));
+    return masked.toString();
+  }
+
+  private void maskMatches(StringBuilder value, Matcher matcher) {
+    while (matcher.find()) {
+      for (int i = matcher.start(); i < matcher.end(); i++) {
+        char current = value.charAt(i);
+        if (current != '\n' && current != '\r') {
+          value.setCharAt(i, ' ');
+        }
+      }
+    }
   }
 }

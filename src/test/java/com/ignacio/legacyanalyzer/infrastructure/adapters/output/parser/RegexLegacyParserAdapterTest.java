@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
@@ -24,7 +25,7 @@ class RegexLegacyParserAdapterTest {
     private final GraphRelationExtractor graphRelationExtractor =
             new GraphRelationExtractor(semanticExtractor);
 
-   private final RegexLegacyParserAdapter parser =
+    private final RegexLegacyParserAdapter parser =
         new RegexLegacyParserAdapter(
 
                 new LegacyRiskAnalyzer(),
@@ -34,6 +35,63 @@ class RegexLegacyParserAdapterTest {
                 semanticExtractor,
 
                 new CursorSemanticExtractor());
+
+    @Test
+    void logisticsPackageShouldOnlyCreateNodesForRealTables() {
+        String source = """
+                CREATE OR REPLACE PACKAGE BODY PKG_LOGISTICA_Y_FACTURACION_LEGACY AS
+                  PROCEDURE PROCESAR(P_ID_CLIENTE NUMBER) IS
+                    V_MONTO_FINAL NUMBER;
+                    CURSOR C_FACT IS SELECT ID_CLIENTE FROM FACTURAS_PENDIENTES;
+                  BEGIN
+                    SELECT NIVEL INTO V_MONTO_FINAL FROM CLIENTES_VIP
+                     WHERE ID_CLIENTE = P_ID_CLIENTE;
+                    SELECT SYSDATE, USER INTO V_MONTO_FINAL, V_MONTO_FINAL FROM DUAL;
+                    UPDATE INVENTARIO_DEPOSITO SET STOCK = STOCK - 1;
+                    INSERT INTO DESPACHOS_CONFIRMADOS (ID_CLIENTE, FECHA)
+                    VALUES (P_ID_CLIENTE, SYSDATE);
+                    SELECT ESTADO INTO V_MONTO_FINAL FROM PEDIDOS_CABECERA;
+                    INSERT INTO LOG_INCIDENCIAS_LOGISTICA (CODIGO) VALUES (SQLCODE);
+                    INSERT INTO FACTURAS_EMITIDAS (ID_CLIENTE) VALUES (P_ID_CLIENTE);
+                    UPDATE CUENTAS_CORRIENTES_CLIENTES SET SALDO = V_MONTO_FINAL;
+                    INSERT INTO AUDITORIA_TRANSACCIONAL (USUARIO) VALUES (USER);
+
+                    FOR R_FACT IN C_FACT LOOP
+                      V_MONTO_FINAL := R_FACT.ID_CLIENTE;
+                    END LOOP;
+
+                    OPEN C_FACT FOR 'SELECT ID_CLIENTE FROM TABLA_FANTASMA'
+                      USING V_MONTO_FINAL;
+                    -- UPDATE V_VARIABLE_FANTASMA SET VALOR = 1;
+                  END PROCESAR;
+                END PKG_LOGISTICA_Y_FACTURACION_LEGACY;
+                """;
+
+        LegacyObject result = parser.parse(source);
+
+        assertEquals(Set.of(
+                "CLIENTES_VIP",
+                "FACTURAS_PENDIENTES",
+                "INVENTARIO_DEPOSITO",
+                "DESPACHOS_CONFIRMADOS",
+                "PEDIDOS_CABECERA",
+                "LOG_INCIDENCIAS_LOGISTICA",
+                "FACTURAS_EMITIDAS",
+                "CUENTAS_CORRIENTES_CLIENTES",
+                "AUDITORIA_TRANSACCIONAL"), Set.copyOf(result.getReferencedTables()));
+    }
+
+    @Test
+    void shouldRejectVariablesRecordFieldsAndOraclePseudoColumnsAsTables() {
+        List<String> falseCandidates = List.of(
+                "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE",
+                "ROWNUM", "R_FACT.ID_CLIENTE", "V_MONTO_FINAL", "P_CLIENTE",
+                "R_REGISTRO", "C_CURSOR");
+
+        falseCandidates.forEach(candidate ->
+                assertFalse(semanticExtractor.isValidTable(candidate), candidate));
+        assertTrue(semanticExtractor.isValidTable("CRM.CLIENTES"));
+    }
     @Test
     void shouldDetectImplicitJoinTables() {
 
