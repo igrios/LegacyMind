@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import com.ignacio.legacyanalyzer.domain.model.JoinCondition;
+import com.ignacio.legacyanalyzer.domain.model.KnowledgeRelation;
 import com.ignacio.legacyanalyzer.domain.model.LegacyObject;
 import com.ignacio.legacyanalyzer.domain.model.SqlSemanticModel;
 import com.ignacio.legacyanalyzer.domain.model.TableReference;
@@ -55,6 +56,8 @@ class RegexLegacyParserAdapterTest {
                     INSERT INTO FACTURAS_EMITIDAS (ID_CLIENTE) VALUES (P_ID_CLIENTE);
                     UPDATE CUENTAS_CORRIENTES_CLIENTES SET SALDO = V_MONTO_FINAL;
                     INSERT INTO AUDITORIA_TRANSACCIONAL (USUARIO) VALUES (USER);
+                    V_MONTO_FINAL := MONTO_FACTURADO;
+                    V_MONTO_FINAL := OPERACION;
 
                     FOR R_FACT IN C_FACT LOOP
                       V_MONTO_FINAL := R_FACT.ID_CLIENTE;
@@ -79,13 +82,33 @@ class RegexLegacyParserAdapterTest {
                 "FACTURAS_EMITIDAS",
                 "CUENTAS_CORRIENTES_CLIENTES",
                 "AUDITORIA_TRANSACCIONAL"), Set.copyOf(result.getReferencedTables()));
+
+        Set<String> tableRelationTargets = result.getKnowledgeRelations().stream()
+                .filter(relation -> Set.of("READS", "WRITES").contains(relation.relation()))
+                .map(KnowledgeRelation::target)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertEquals(Set.of(
+                "CLIENTES_VIP",
+                "FACTURAS_PENDIENTES",
+                "INVENTARIO_DEPOSITO",
+                "DESPACHOS_CONFIRMADOS",
+                "PEDIDOS_CABECERA",
+                "LOG_INCIDENCIAS_LOGISTICA",
+                "FACTURAS_EMITIDAS",
+                "CUENTAS_CORRIENTES_CLIENTES",
+                "AUDITORIA_TRANSACCIONAL"), tableRelationTargets);
+        assertFalse(result.getKnowledgeRelations().stream().anyMatch(relation ->
+                Set.of("ID_CLIENTE", "OPERACION", "MONTO_FACTURADO")
+                        .contains(relation.target())));
     }
 
     @Test
     void shouldRejectVariablesRecordFieldsAndOraclePseudoColumnsAsTables() {
         List<String> falseCandidates = List.of(
                 "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE",
-                "ROWNUM", "ID_DESPACHO", "FECHA_FACTURA", "USUARIO", "FECHA",
+                "ROWNUM", "ID_CLIENTE", "ID_DESPACHO", "MONTO_FACTURADO", "OPERACION",
+                "FECHA_FACTURA", "USUARIO", "FECHA",
                 "R_FACT.ID_CLIENTE", "V_MONTO_FINAL", "P_CLIENTE",
                 "R_REGISTRO", "C_CURSOR");
 

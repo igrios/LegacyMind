@@ -338,7 +338,8 @@ while (mergeMatcher.find()) {
         "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY", "BEGIN",
         "END", "NULL", "IS", "AS", "LOOP", "FOR", "WHEN", "OTHERS", "DE", "OF",
         "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE", "ROWNUM",
-        "ID_DESPACHO", "FECHA_FACTURA", "USUARIO", "FECHA"
+        "ID_CLIENTE", "ID_DESPACHO", "MONTO_FACTURADO", "OPERACION", "FECHA_FACTURA",
+        "USUARIO", "FECHA"
 
     ).contains(table)) {
 

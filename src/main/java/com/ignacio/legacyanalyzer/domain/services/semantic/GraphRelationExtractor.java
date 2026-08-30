@@ -3,6 +3,7 @@ package com.ignacio.legacyanalyzer.domain.services.semantic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 public class GraphRelationExtractor {
 
     private static final double REGEX_CONFIDENCE = 0.8d;
+    private static final Set<String> INVALID_RELATION_TARGETS = Set.of(
+            "ID_CLIENTE", "ID_DESPACHO", "MONTO_FACTURADO", "OPERACION",
+            "FECHA_FACTURA", "FECHA", "USUARIO");
 
     private final SqlSemanticExtractor semanticExtractor;
 
@@ -48,14 +52,14 @@ public class GraphRelationExtractor {
         }
 
         for (String table : semanticExtractor.extractReadTables(normalized)) {
-            if (isValidSemanticObject(table)) {
+            if (semanticExtractor.isValidTable(table)) {
                 relations.add(relation(objectName, "READS", table, objectName, sourceCode,
                         evidenceForTable(sourceCode, table, "READS"), analysisId));
             }
         }
 
         for (String table : semanticExtractor.extractWriteTables(normalized)) {
-            if (isValidSemanticObject(table)) {
+            if (semanticExtractor.isValidTable(table)) {
                 relations.add(relation(objectName, "WRITES", table, objectName, sourceCode,
                         evidenceForTable(sourceCode, table, "WRITES"), analysisId));
             }
@@ -74,7 +78,7 @@ public class GraphRelationExtractor {
                 .matcher(normalized);
         if (normalized.contains("TRIGGER") && triggerMatcher.find()) {
             String targetTable = triggerMatcher.group(1).toUpperCase();
-            if (isValidSemanticObject(targetTable)) {
+            if (semanticExtractor.isValidTable(targetTable)) {
                 relations.add(relation(objectName, "TRIGGER_ON", targetTable, objectName,
                         sourceCode,
                         evidenceAround(sourceCode, triggerMatcher.start(), triggerMatcher.end()),
@@ -82,7 +86,10 @@ public class GraphRelationExtractor {
             }
         }
 
-        return relations.stream().distinct().toList();
+        return relations.stream()
+                .filter(this::hasValidTarget)
+                .distinct()
+                .toList();
     }
 
     private KnowledgeRelation relation(
@@ -143,6 +150,7 @@ public class GraphRelationExtractor {
         char[] chars = sourceCode.toUpperCase().toCharArray();
         mask(chars, Pattern.compile("--[^\\r\\n]*").matcher(new String(chars)));
         mask(chars, Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL).matcher(new String(chars)));
+        mask(chars, Pattern.compile("'(?:''|[^'])*'").matcher(new String(chars)));
         mask(chars, Pattern.compile("\\(\\+\\)").matcher(new String(chars)));
         return new String(chars);
     }
@@ -157,15 +165,22 @@ public class GraphRelationExtractor {
         }
     }
 
-    private boolean isValidSemanticObject(String value) {
-        if (value == null || value.isBlank()) {
+    private boolean hasValidTarget(KnowledgeRelation relation) {
+        String target = relation.target();
+        if (target == null || target.isBlank()) {
             return false;
         }
-        String normalized = value.toUpperCase().trim();
-        return normalized.length() >= 3 && !List.of(
-                "SELECT", "FROM", "WHERE", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER",
-                "ON", "AND", "OR", "END", "IS", "AS", "BY", "IN", "TO")
-                .contains(normalized);
+
+        if (relation.relation().equals("READS")
+                || relation.relation().equals("WRITES")
+                || relation.relation().equals("TRIGGER_ON")) {
+            return semanticExtractor.isValidTable(target);
+        }
+
+        String normalized = target.toUpperCase().trim();
+        return normalized.matches("[A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?")
+                && !INVALID_RELATION_TARGETS.contains(normalized)
+                && !normalized.matches("(?:V|P|R|C)_.+");
     }
 
     private record Evidence(int start, int end) {
