@@ -23,6 +23,10 @@ public class SqlSemanticExtractor {
       "\\bJOIN\\s+([A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?(?:@[A-Z][A-Z0-9_$#]*)?)",
       Pattern.CASE_INSENSITIVE);
 
+  private static final Pattern TABLE_SOURCE_PATTERN = Pattern.compile(
+      "([A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?(?:@[A-Z][A-Z0-9_$#]*)?)",
+      Pattern.CASE_INSENSITIVE);
+
   private static final Pattern UPDATE_PATTERN = Pattern
       .compile("\\bUPDATE\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)", Pattern.CASE_INSENSITIVE);
 
@@ -32,13 +36,6 @@ public class SqlSemanticExtractor {
 private static final Pattern MERGE_PATTERN =
     Pattern.compile(
         "\\bMERGE\\s+INTO\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
-        Pattern.CASE_INSENSITIVE);
-
-private static final Pattern USING_PATTERN =
-    Pattern.compile(
-        "\\bMERGE\\s+INTO\\s+[A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?"
-            + "(?:@[A-Z][A-Z0-9_$#]*)?\\s+[^;]*?\\bUSING\\s+"
-            + "([A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?(?:@[A-Z][A-Z0-9_$#]*)?)",
         Pattern.CASE_INSENSITIVE);
 
   private static final Pattern DELETE_PATTERN = Pattern.compile(
@@ -81,9 +78,6 @@ private static final Pattern USING_PATTERN =
         // =============================
 
         if (trimmed.startsWith("(")) {
-
-          tables.addAll(extractReadTables(trimmed));
-
           continue;
         }
 
@@ -91,9 +85,12 @@ private static final Pattern USING_PATTERN =
         // NORMAL TABLE
         // =============================
 
-        String table = trimmed.split("\\s+")[0];
+        Matcher sourceMatcher = TABLE_SOURCE_PATTERN.matcher(trimmed);
+        if (!sourceMatcher.lookingAt()) {
+          continue;
+        }
 
-        table = clean(table);
+        String table = sourceMatcher.group(1).toUpperCase();
 
         if (isValidTable(table)) {
 
@@ -117,20 +114,6 @@ private static final Pattern USING_PATTERN =
         log.debug("JOIN TABLE >>> {}", table);
       }
     }
-
-    Matcher usingMatcher = USING_PATTERN.matcher(normalized);
-
-while (usingMatcher.find()) {
-
-    String table = clean(usingMatcher.group(1));
-
-    if (isValidTable(table)) {
-
-        tables.add(table);
-
-        log.debug("MERGE USING TABLE >>> {}", table);
-    }
-}
 
     return tables.stream().distinct().toList();
   }
@@ -354,7 +337,8 @@ while (mergeMatcher.find()) {
         "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "JOIN",
         "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY", "BEGIN",
         "END", "NULL", "IS", "AS", "LOOP", "FOR", "WHEN", "OTHERS", "DE", "OF",
-        "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE", "ROWNUM"
+        "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE", "ROWNUM",
+        "ID_DESPACHO", "FECHA_FACTURA", "USUARIO", "FECHA"
 
     ).contains(table)) {
 

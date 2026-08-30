@@ -85,12 +85,49 @@ class RegexLegacyParserAdapterTest {
     void shouldRejectVariablesRecordFieldsAndOraclePseudoColumnsAsTables() {
         List<String> falseCandidates = List.of(
                 "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE",
-                "ROWNUM", "R_FACT.ID_CLIENTE", "V_MONTO_FINAL", "P_CLIENTE",
+                "ROWNUM", "ID_DESPACHO", "FECHA_FACTURA", "USUARIO", "FECHA",
+                "R_FACT.ID_CLIENTE", "V_MONTO_FINAL", "P_CLIENTE",
                 "R_REGISTRO", "C_CURSOR");
 
         falseCandidates.forEach(candidate ->
                 assertFalse(semanticExtractor.isValidTable(candidate), candidate));
         assertTrue(semanticExtractor.isValidTable("CRM.CLIENTES"));
+    }
+
+    @Test
+    void selectProjectionAndInSubqueryColumnsMustNeverBecomeTables() {
+        String source = """
+                CREATE OR REPLACE PROCEDURE SP_CONFIRMAR_DESPACHOS IS
+                BEGIN
+                  SELECT ID_DESPACHO, FECHA_FACTURA, USUARIO, FECHA
+                    FROM DESPACHOS_CONFIRMADOS D
+                   WHERE D.ID_DESPACHO IN (
+                     SELECT F.ID_DESPACHO
+                       FROM FACTURAS_EMITIDAS F
+                       JOIN AUDITORIA_TRANSACCIONAL A
+                         ON A.ID_DESPACHO = F.ID_DESPACHO
+                   );
+
+                  UPDATE PEDIDOS_CABECERA
+                     SET FECHA = SYSDATE
+                   WHERE ID_DESPACHO IN (
+                     SELECT ID_DESPACHO FROM INVENTARIO_DEPOSITO
+                   );
+                END SP_CONFIRMAR_DESPACHOS;
+                """;
+
+        LegacyObject result = parser.parse(source);
+
+        assertEquals(Set.of(
+                "DESPACHOS_CONFIRMADOS",
+                "FACTURAS_EMITIDAS",
+                "AUDITORIA_TRANSACCIONAL",
+                "PEDIDOS_CABECERA",
+                "INVENTARIO_DEPOSITO"), Set.copyOf(result.getReferencedTables()));
+        assertFalse(result.getReferencedTables().contains("ID_DESPACHO"));
+        assertFalse(result.getReferencedTables().contains("FECHA_FACTURA"));
+        assertFalse(result.getReferencedTables().contains("USUARIO"));
+        assertFalse(result.getReferencedTables().contains("FECHA"));
     }
     @Test
     void shouldDetectImplicitJoinTables() {
