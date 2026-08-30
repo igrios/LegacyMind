@@ -77,7 +77,10 @@ export default function NodeDetailsDrawer({ node, onClose }) {
             <ItemList items={data.writes} emptyMessage="No table writes found." />
           </Section>
           <Section title="AST code snippets">
-            {data.codeSnippets?.length ? data.codeSnippets.map((snippet, index) => (
+            {(data.bodySnippet || data.codeSnippets?.length) ? [
+              data.bodySnippet,
+              ...(data.codeSnippets || [])
+            ].filter(Boolean).filter((snippet, index, all) => all.indexOf(snippet) === index).map((snippet, index) => (
               <pre key={index} style={{
                 whiteSpace: "pre-wrap", overflowWrap: "anywhere", background: "#020617",
                 color: "#a7f3d0", borderRadius: "8px", padding: "12px", fontSize: "12px"

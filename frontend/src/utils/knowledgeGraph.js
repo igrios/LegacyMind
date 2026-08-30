@@ -3,8 +3,8 @@ import getLayoutedElements from "./layout";
 
 const NODE_STYLES = {
   PACKAGE: { background: "#2563eb", borderRadius: "16px" },
-  PROCEDURE: { background: "#06b6d4", borderRadius: "999px" },
-  FUNCTION: { background: "#0891b2", borderRadius: "999px" },
+  PROCEDURE: { background: "#7c3aed", borderRadius: "999px" },
+  FUNCTION: { background: "#9333ea", borderRadius: "999px" },
   TRIGGER: { background: "#f97316", borderRadius: "10px" },
   VIEW: { background: "#a855f7", borderRadius: "8px" },
   TABLE: { background: "#16a34a", borderRadius: "4px" },
@@ -12,10 +12,21 @@ const NODE_STYLES = {
 };
 
 const RELATION_COLORS = {
+  CONTAINS: "#818cf8",
   READS: "#38bdf8",
   WRITES: "#f97316",
   CALLS: "#c084fc"
 };
+
+function uniqueRelations(relations) {
+  const seen = new Set();
+  return relations.filter(({ source, target, relation }) => {
+    const key = `${source}\u001f${relation}\u001f${target}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 function inferType(id, relation, endpoint) {
   const value = id.toUpperCase();
@@ -29,26 +40,73 @@ function inferType(id, relation, endpoint) {
 }
 
 export function buildKnowledgeGraph(payload = {}) {
-  const relations = Array.isArray(payload.knowledgeRelations)
+  const responseRelations = Array.isArray(payload.knowledgeRelations)
     ? payload.knowledgeRelations
     : Array.isArray(payload.edges) ? payload.edges : [];
   const declaredNodes = Array.isArray(payload.nodes) ? payload.nodes : [];
   const subprograms = Array.isArray(payload.subprograms) ? payload.subprograms : [];
   const nodeTypes = new Map();
 
+  const packageName = payload.name;
+  if (packageName) {
+    const payloadType = (payload.type || "PACKAGE").toUpperCase();
+    nodeTypes.set(packageName, payloadType.includes("PACKAGE") ? "PACKAGE" : payloadType);
+  }
+
+  subprograms.forEach((subprogram) => {
+    const id = subprogram.qualifiedName || (packageName && `${packageName}.${subprogram.name}`) || subprogram.name;
+    if (id) nodeTypes.set(id, (subprogram.type || "PROCEDURE").toUpperCase());
+  });
+
   declaredNodes.forEach((node) => {
     const id = typeof node === "string" ? node : node?.id;
     if (id) nodeTypes.set(id, typeof node === "string" ? "UNKNOWN" : node.type || "UNKNOWN");
   });
 
-  const validRelations = relations.filter((item) => item?.source && item?.target);
+  const originalRelations = responseRelations.filter((item) => item?.source && item?.target);
+  const subprogramRelations = subprograms.flatMap((subprogram) => {
+    const source = subprogram.qualifiedName
+      || (packageName && `${packageName}.${subprogram.name}`)
+      || subprogram.name;
+    if (!source) return [];
+
+    return [
+      ...(subprogram.reads || []).map((target) => ({ source, target, relation: "READS" })),
+      ...(subprogram.writes || []).map((target) => ({ source, target, relation: "WRITES" })),
+      ...(subprogram.calls || []).map((target) => ({ source, target, relation: "CALLS" }))
+    ].map((relation) => {
+      const evidence = originalRelations.find((candidate) =>
+        candidate.target === relation.target
+        && candidate.relation?.toUpperCase() === relation.relation
+      );
+      return {
+        ...evidence,
+        ...relation,
+        sourceObject: source,
+        codeSnippet: evidence?.codeSnippet || subprogram.body || null
+      };
+    });
+  });
+
+  const explicitlyAttributed = originalRelations.filter(({ source, sourceObject }) =>
+    nodeTypes.has(sourceObject || source) && (sourceObject || source) !== packageName
+  );
+  const validRelations = uniqueRelations(
+    subprograms.length ? [...subprogramRelations, ...explicitlyAttributed] : originalRelations
+  );
+  const containsRelations = packageName ? subprograms.map((subprogram) => ({
+    source: packageName,
+    target: subprogram.qualifiedName || `${packageName}.${subprogram.name}`,
+    relation: "CONTAINS"
+  })) : [];
+
   validRelations.forEach(({ source, target, relation = "RELATED_TO" }) => {
     if (!nodeTypes.has(source)) nodeTypes.set(source, inferType(source, relation, "source"));
     if (!nodeTypes.has(target)) nodeTypes.set(target, inferType(target, relation, "target"));
   });
 
   const degree = new Map();
-  validRelations.forEach(({ source, target }) => {
+  [...containsRelations, ...validRelations].forEach(({ source, target }) => {
     degree.set(source, (degree.get(source) || 0) + 1);
     degree.set(target, (degree.get(target) || 0) + 1);
   });
@@ -61,7 +119,9 @@ export function buildKnowledgeGraph(payload = {}) {
         source === id || target === id || sourceObject === id
     );
     const associatedSubprograms = subprograms.filter(({ qualifiedName }) =>
-      qualifiedName === id || qualifiedName?.startsWith(`${id}.`)
+      id === packageName
+        ? qualifiedName?.startsWith(`${id}.`)
+        : qualifiedName === id
     );
     const reads = [...new Set(nodeRelations
       .filter(({ source, relation }) => source === id && relation?.toUpperCase() === "READS")
@@ -93,7 +153,8 @@ export function buildKnowledgeGraph(payload = {}) {
         reads,
         writes,
         accessedBy,
-        codeSnippets
+        codeSnippets,
+        bodySnippet: associatedSubprograms.find(({ qualifiedName }) => qualifiedName === id)?.body || null
       },
       style: {
         ...colors,
@@ -107,7 +168,7 @@ export function buildKnowledgeGraph(payload = {}) {
     };
   });
 
-  const edges = validRelations.map((edge, index) => {
+  const edges = [...containsRelations, ...validRelations].map((edge, index) => {
     const relation = (edge.relation || "RELATED_TO").toUpperCase();
     const color = RELATION_COLORS[relation] || "#94a3b8";
     return {

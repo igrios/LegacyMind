@@ -1,9 +1,5 @@
 import dagre from "dagre";
 
-const dagreGraph = new dagre.graphlib.Graph();
-
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 80;
 
@@ -11,6 +7,9 @@ export default function getLayoutedElements(
   nodes,
   edges
 ) {
+
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   // 🔥 Dirección del layout
   // TB = top-bottom
@@ -20,9 +19,13 @@ export default function getLayoutedElements(
 
     rankdir: "TB",
 
-    nodesep: 80,
+    nodesep: 140,
 
-    ranksep: 120
+    ranksep: 190,
+
+    marginx: 50,
+
+    marginy: 50
   });
 
   // 🔵 Registrar nodos
