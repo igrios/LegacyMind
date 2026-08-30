@@ -51,33 +51,33 @@ class LegacyObjectMapperTest {
         AnalyzeLegacyResponse response =
                 mapper.toResponse(entity);
 
-        assertEquals("TEST", response.name());
+        assertEquals("TEST", response.getName());
 
-        assertEquals("PROCEDURE", response.type());
+        assertEquals("PROCEDURE", response.getType());
 
         assertEquals(
                 List.of("PROC1", "PROC2"),
-                response.procedures());
+                response.getProcedures());
 
         assertEquals(
                 List.of("TABLE1", "TABLE2"),
-                response.referencedTables());
+                response.getReferencedTables());
 
         assertEquals(
                 List.of("COMMIT_USAGE", "GENERIC_EXCEPTION"),
-                response.codeSmells());
+                response.getCodeSmells());
 
         assertEquals(
                 5,
-                response.riskScore());
+                response.getRiskScore());
 
         assertEquals(
                 "MEDIUM",
-                response.riskLevel());
+                response.getRiskLevel());
 
         assertEquals(
                 "summary",
-                response.functionalSummary());
+                response.getFunctionalSummary());
     }
 
     @Test
@@ -122,26 +122,26 @@ class LegacyObjectMapperTest {
 
         assertEquals(
                 List.of(),
-                response.procedures());
+                response.getProcedures());
 
         assertEquals(
                 List.of(),
-                response.referencedTables());
+                response.getReferencedTables());
 
         assertEquals(
                 List.of(),
-                response.codeSmells());
+                response.getCodeSmells());
 
         assertEquals(
                 0,
-                response.riskScore());
+                response.getRiskScore());
 
         assertEquals(
                 "LOW",
-                response.riskLevel());
+                response.getRiskLevel());
 
         assertEquals(
                 "No summary available",
-                response.functionalSummary());
+                response.getFunctionalSummary());
     }
 }

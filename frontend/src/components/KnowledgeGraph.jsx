@@ -8,6 +8,7 @@ import ReactFlow, {
 
 import "reactflow/dist/style.css";
 import SidePanel from "./SidePanel";
+import { buildKnowledgeGraph } from "../utils/knowledgeGraph";
 
 export default function KnowledgeGraph() {
 
@@ -17,49 +18,24 @@ export default function KnowledgeGraph() {
 
   useEffect(() => {
 
-    fetch(`${process.env.REACT_APP_API_URL}/knowledge-graph`)
+    const apiUrl = process.env.REACT_APP_API_URL || "https://legacymind-api.onrender.com/api/legacy";
+
+    fetch(`${apiUrl}/knowledge-graph`)
 
       .then((response) => response.json())
 
       .then((data) => {
 
-        const flowNodes = data.nodes.map((node, index) => ({
-
-          id: node,
-
-          data: {
-            label: node
-          },
-
-          position: {
-            x: index * 250,
-            y: 150
-          }
-        }));
-
-        const flowEdges = data.edges.map((edge, index) => ({
-
-          id: `edge-${index}`,
-
-          source: edge.source,
-
-          target: edge.target,
-
-          label: edge.relation,
-
-          animated: true
-        }));
-
-        setNodes(flowNodes);
-
-        setEdges(flowEdges);
+        const graph = buildKnowledgeGraph(data);
+        setNodes(graph.nodes);
+        setEdges(graph.edges);
       });
 
   }, []);
 
   return (
 
-    <div style={{ width: "100%", height: "800px" }}>
+    <div style={{ position: "relative", width: "100%", height: "800px", minHeight: "400px" }}>
 
       <ReactFlow
         nodes={nodes}
@@ -70,7 +46,7 @@ export default function KnowledgeGraph() {
           try {
 
             const response = await fetch(
-              `${process.env.REACT_APP_API_URL}/object/${node.id}`
+              `${process.env.REACT_APP_API_URL || "https://legacymind-api.onrender.com/api/legacy"}/object/${node.id}`
             );
 
             const details = await response.json();

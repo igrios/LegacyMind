@@ -2,6 +2,7 @@ import { useState } from "react";
 import GraphView from "./components/GraphView";
 import OraclePackageUploader from "./components/OraclePackageUploader";
 import { getKnowledgeGraph } from "./services/api";
+import { buildKnowledgeGraph } from "./utils/knowledgeGraph";
 
 function App() {
   const [screen, setScreen] = useState("graph");
@@ -18,97 +19,19 @@ function App() {
   const handleAnalyze = async () => {
     try {
       const res = await getKnowledgeGraph();
-      console.log("GRAPH:", res.data);
-
-      if (!res.data || !res.data.nodes) return;
-
-      // Edges
-      const flowEdges = (res.data.edges || []).map((edge, index) => ({
-        id: `edge-${index}`,
-        source: edge.source,
-        target: edge.target,
-        label: edge.relation,
-        relation: edge.relation,
-        animated: true
-      }));
-
-      // Degree Map
-      const degreeMap = {};
-      flowEdges.forEach(edge => {
-        degreeMap[edge.source] = (degreeMap[edge.source] || 0) + 1;
-        degreeMap[edge.target] = (degreeMap[edge.target] || 0) + 1;
-      });
-
-      // Unique Nodes
-      const uniqueNodes = [...new Set(res.data.nodes)];
-
-      // Build Nodes
-      const flowNodes = uniqueNodes.map((node, index) => {
-        // Node Type Detection
-        let nodeType = "TABLE";
-        if (node.startsWith("PKG_")) nodeType = "PACKAGE";
-        else if (node.startsWith("SP_")) nodeType = "PROCEDURE";
-        else if (node.startsWith("TRG_")) nodeType = "TRIGGER";
-        else if (node.startsWith("VW_") || node.startsWith("V_")) nodeType = "VIEW";
-
-        // Color Mapping
-        let background = "#22c55e"; // Table default
-        if (nodeType === "PACKAGE") background = "#2563eb";
-        else if (nodeType === "PROCEDURE") background = "#06b6d4";
-        else if (nodeType === "TRIGGER") background = "#f97316";
-        else if (nodeType === "VIEW") background = "#a855f7";
-
-        // Criticality / Sizing based on degree
-        const degree = degreeMap[node] || 0;
-        let width = 180;
-        let height = 55;
-        let fontSize = "14px";
-        let glow = "0 8px 20px rgba(0,0,0,0.25)";
-
-        if (degree >= 6) {
-          width = 320;
-          height = 95;
-          fontSize = "20px";
-          glow = "0 0 30px rgba(239,68,68,0.8)"; // Red glowing
-        } else if (degree >= 3) {
-          width = 250;
-          height = 75;
-          fontSize = "16px";
-        }
-
-        return {
-          id: node,
-          position: {
-            x: 150 + (index % 4) * 320,
-            y: 120 + Math.floor(index / 4) * 220
-          },
-          data: {
-            label: node,
-            nodeType,
-            degree
-          },
-          style: {
-            background,
-            color: "white",
-            border: "2px solid #111827",
-            borderRadius: "16px",
-            padding: "10px",
-            width,
-            height,
-            fontWeight: "bold",
-            fontSize,
-            boxShadow: glow,
-            transition: "all 0.3s ease",
-            cursor: "pointer"
-          }
-        };
-      });
-
-      setNodes(flowNodes);
-      setEdges(flowEdges);
+      const graph = buildKnowledgeGraph(res.data);
+      setNodes(graph.nodes);
+      setEdges(graph.edges);
     } catch (err) {
       console.error("Error loading knowledge graph:", err);
     }
+  };
+
+  const handleAnalysisComplete = (analysis) => {
+    const graph = buildKnowledgeGraph(analysis);
+    setNodes(graph.nodes);
+    setEdges(graph.edges);
+    setScreen("graph");
   };
 
   // =====================================================
@@ -223,11 +146,11 @@ function App() {
       </div>
 
       {/* MAIN VIEW AREA */}
-      <div style={{ flex: 1, position: "relative" }}>
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, position: "relative" }}>
         {screen === "graph" ? (
           <GraphView nodes={nodes} edges={edges} onNodeClick={handleNodeClick} />
         ) : (
-          <OraclePackageUploader />
+          <OraclePackageUploader onAnalysisComplete={handleAnalysisComplete} />
         )}
       </div>
 

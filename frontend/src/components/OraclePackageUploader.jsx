@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function OraclePackageUploader() {
+export default function OraclePackageUploader({ onAnalysisComplete }) {
 
   const [sourceCode, setSourceCode] = React.useState("");
 
@@ -58,6 +58,7 @@ export default function OraclePackageUploader() {
       const data = await res.json();
 
       setResponse(data);
+      onAnalysisComplete?.(data);
 
     } catch (err) {
 

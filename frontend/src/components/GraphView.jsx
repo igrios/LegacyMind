@@ -20,8 +20,11 @@ export default function GraphView({
 
     <div
       style={{
+        position: "absolute",
+        inset: 0,
         width: "100%",
-        height: "100vh",
+        height: "100%",
+        minHeight: "400px",
         background: "#0f172a"
       }}
     >
@@ -36,7 +39,7 @@ export default function GraphView({
 
         onNodeClick={(event, node) => {
 
-          onNodeClick(node.id);
+          onNodeClick?.(node.id);
         }}
 
       >
