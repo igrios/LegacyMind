@@ -45,7 +45,7 @@ public class SemanticDependencyExtractor {
             Matcher updateMatcher = UPDATE_PATTERN.matcher(statement);
             if (updateMatcher.find()) {
                 String target = joinExtractor.clean(updateMatcher.group(1));
-                if (semanticExtractor.isValidTable(target) && mainTable != null
+                if (semanticExtractor.isValidTableTarget(target) && mainTable != null
                         && !target.equals(mainTable)) {
                     relations.add(mainTable + "->" + target);
                 }
@@ -54,7 +54,7 @@ public class SemanticDependencyExtractor {
             Matcher insertMatcher = INSERT_PATTERN.matcher(statement);
             if (insertMatcher.find()) {
                 String target = joinExtractor.clean(insertMatcher.group(1));
-                if (semanticExtractor.isValidTable(target)) {
+                if (semanticExtractor.isValidTableTarget(target)) {
                     for (String source : extractTables(
                             joinExtractor.extractTopLevelFromClause(statement))) {
                         if (!source.equals(target)) relations.add(source + "->" + target);
@@ -67,7 +67,7 @@ public class SemanticDependencyExtractor {
                 List<String> tables = joinExtractor.extractTableReferences(fromClause).stream()
                         .map(TableReference::getFullName)
                         .map(joinExtractor::clean)
-                        .filter(semanticExtractor::isValidTable)
+                        .filter(semanticExtractor::isValidTableTarget)
                         .distinct().toList();
                 for (int i = 0; i < tables.size(); i++) {
                     for (int j = i + 1; j < tables.size(); j++) {
@@ -86,7 +86,7 @@ public class SemanticDependencyExtractor {
         Matcher updateMatcher = SIMPLE_UPDATE_PATTERN.matcher(normalized);
         if (updateMatcher.find()) {
             String table = joinExtractor.clean(updateMatcher.group(1));
-            if (semanticExtractor.isValidTable(table)) return table;
+            if (semanticExtractor.isValidTableTarget(table)) return table;
         }
         Map<String, Integer> frequency = new HashMap<>();
         for (String table : semanticExtractor.extractReadTables(normalized)) {
@@ -102,7 +102,7 @@ public class SemanticDependencyExtractor {
         for (TableReference reference : joinExtractor.extractTableReferences(clause)) {
             if (reference.getFullName() != null) {
                 String table = joinExtractor.clean(reference.getFullName().toUpperCase());
-                if (semanticExtractor.isValidTable(table)) tables.add(table);
+                if (semanticExtractor.isValidTableTarget(table)) tables.add(table);
             }
         }
         for (String part : joinExtractor.splitTopLevelComma(clause)) {

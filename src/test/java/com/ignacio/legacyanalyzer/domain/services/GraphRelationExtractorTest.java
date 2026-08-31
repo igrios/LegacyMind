@@ -155,4 +155,52 @@ List<KnowledgeRelation> relations =
                                 r.relation().equals("CALLS")
                                         && r.target().equals("S")));
     }
+
+    @Test
+    void should_accept_prefixed_package_calls_and_ignore_non_code_calls() {
+        String sourceCode = """
+                CREATE OR REPLACE PROCEDURE SP_PROCESAR IS
+                BEGIN
+                    P_FACTURACION.PROCESAR();
+                    R_REPORTES.GENERAR();
+                    C_CLIENTES.ACTUALIZAR();
+                    V_SERVICIOS.EJECUTAR();
+                    -- P_FANTASMA.EJECUTAR();
+                    V_TEXTO := 'R_FANTASMA.GENERAR()';
+                END;
+                """;
+
+        List<String> calls = graphRelationExtractor.extractKnowledgeRelations(
+                        sourceCode, "SP_PROCESAR", List.of())
+                .stream()
+                .filter(relation -> relation.relation().equals("CALLS"))
+                .map(KnowledgeRelation::target)
+                .toList();
+
+        assertTrue(calls.containsAll(List.of(
+                "P_FACTURACION", "R_REPORTES", "C_CLIENTES", "V_SERVICIOS")));
+        assertFalse(calls.contains("P_FANTASMA"));
+        assertFalse(calls.contains("R_FANTASMA"));
+    }
+
+    @Test
+    void should_extract_schema_and_database_link_table_targets() {
+        String sourceCode = """
+                CREATE OR REPLACE PROCEDURE SP_REMOTO IS
+                BEGIN
+                    SELECT * FROM CRM.CLIENTES@REMOTE_DB;
+                    INSERT INTO ERP.AUDITORIA@REMOTE_DB (ID) VALUES (1);
+                END;
+                """;
+
+        List<KnowledgeRelation> relations = graphRelationExtractor.extractKnowledgeRelations(
+                sourceCode, "SP_REMOTO", List.of());
+
+        assertTrue(relations.stream().anyMatch(relation ->
+                relation.relation().equals("READS")
+                        && relation.target().equals("CRM.CLIENTES@REMOTE_DB")));
+        assertTrue(relations.stream().anyMatch(relation ->
+                relation.relation().equals("WRITES")
+                        && relation.target().equals("ERP.AUDITORIA@REMOTE_DB")));
+    }
 }

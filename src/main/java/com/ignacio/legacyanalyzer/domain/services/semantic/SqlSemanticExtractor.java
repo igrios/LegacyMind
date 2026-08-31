@@ -16,30 +16,45 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class SqlSemanticExtractor {
 
+  private static final Set<String> ORACLE_RESERVED_IDENTIFIERS = Set.of(
+      "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE",
+      "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER",
+      "BY", "BEGIN", "END", "NULL", "IS", "AS", "LOOP", "FOR", "WHEN", "OTHERS", "DE",
+      "OF", "DUAL", "SYSDATE", "USER", "ROWNUM", "NEXTVAL", "CURRVAL", "SQLERRM",
+      "SQLCODE");
+
+  private static final String ORACLE_IDENTIFIER = "[A-Z][A-Z0-9_$#]*";
+  private static final Pattern TABLE_TARGET_PATTERN = Pattern.compile(
+      ORACLE_IDENTIFIER + "(?:\\." + ORACLE_IDENTIFIER + ")?(?:@" + ORACLE_IDENTIFIER + ")?");
+  private static final Pattern CALL_TARGET_PATTERN = Pattern.compile(
+      ORACLE_IDENTIFIER + "(?:\\." + ORACLE_IDENTIFIER + ")?");
+  private static final String TABLE_TARGET_CAPTURE =
+      "(" + ORACLE_IDENTIFIER + "(?:\\." + ORACLE_IDENTIFIER + ")?(?:@"
+          + ORACLE_IDENTIFIER + ")?)";
+
   private static final Pattern FROM_PATTERN =
       Pattern.compile("\\bFROM\\b", Pattern.CASE_INSENSITIVE);
 
   private static final Pattern JOIN_ALIAS_PATTERN = Pattern.compile(
-      "\\bJOIN\\s+([A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?(?:@[A-Z][A-Z0-9_$#]*)?)",
+      "\\bJOIN\\s+" + TABLE_TARGET_CAPTURE,
       Pattern.CASE_INSENSITIVE);
 
   private static final Pattern TABLE_SOURCE_PATTERN = Pattern.compile(
-      "([A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?(?:@[A-Z][A-Z0-9_$#]*)?)",
+      TABLE_TARGET_CAPTURE,
       Pattern.CASE_INSENSITIVE);
 
   private static final Pattern UPDATE_PATTERN = Pattern
-      .compile("\\bUPDATE\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)", Pattern.CASE_INSENSITIVE);
+      .compile("\\bUPDATE\\s+" + TABLE_TARGET_CAPTURE, Pattern.CASE_INSENSITIVE);
 
   private static final Pattern INSERT_PATTERN = Pattern.compile(
-      "\\bINSERT\\s+INTO\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)", Pattern.CASE_INSENSITIVE);
+      "\\bINSERT\\s+INTO\\s+" + TABLE_TARGET_CAPTURE, Pattern.CASE_INSENSITIVE);
 
-private static final Pattern MERGE_PATTERN =
-    Pattern.compile(
-        "\\bMERGE\\s+INTO\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
-        Pattern.CASE_INSENSITIVE);
+  private static final Pattern MERGE_PATTERN = Pattern.compile(
+      "\\bMERGE\\s+INTO\\s+" + TABLE_TARGET_CAPTURE,
+      Pattern.CASE_INSENSITIVE);
 
   private static final Pattern DELETE_PATTERN = Pattern.compile(
-      "\\bDELETE\\s+FROM\\s+([A-Z][A-Z0-9_]*(?:\\.[A-Z][A-Z0-9_]*)?)",
+      "\\bDELETE\\s+FROM\\s+" + TABLE_TARGET_CAPTURE,
       Pattern.CASE_INSENSITIVE);
 
 
@@ -92,7 +107,7 @@ private static final Pattern MERGE_PATTERN =
 
         String table = sourceMatcher.group(1).toUpperCase();
 
-        if (isValidTable(table)) {
+        if (isValidTableTarget(table)) {
 
           tables.add(table);
 
@@ -107,7 +122,7 @@ private static final Pattern MERGE_PATTERN =
 
       String table = clean(joinMatcher.group(1));
 
-      if (isValidTable(table)) {
+      if (isValidTableTarget(table)) {
 
         tables.add(table);
 
@@ -137,7 +152,7 @@ private static final Pattern MERGE_PATTERN =
 
       String table = updateMatcher.group(1).toUpperCase();
 
-      if (isValidTable(table)) {
+      if (isValidTableTarget(table)) {
 
         result.add(table);
 
@@ -155,7 +170,7 @@ private static final Pattern MERGE_PATTERN =
 
       String table = insertMatcher.group(1).toUpperCase();
 
-      if (isValidTable(table)) {
+      if (isValidTableTarget(table)) {
 
         result.add(table);
 
@@ -169,7 +184,7 @@ while (mergeMatcher.find()) {
 
     String table = mergeMatcher.group(1).toUpperCase();
 
-    if (isValidTable(table)) {
+    if (isValidTableTarget(table)) {
 
         result.add(table);
 
@@ -181,7 +196,7 @@ while (mergeMatcher.find()) {
 
     while (deleteMatcher.find()) {
       String table = deleteMatcher.group(1).toUpperCase();
-      if (isValidTable(table)) {
+      if (isValidTableTarget(table)) {
         result.add(table);
         log.debug("DELETE TABLE >>> {}", table);
       }
@@ -299,78 +314,57 @@ while (mergeMatcher.find()) {
     return table.replaceAll("[^A-Z0-9_.$#@]", "");
   }
 
-  public boolean isValidTable(String table) {
+  /**
+   * Validates an Oracle table identifier already captured from a table-bearing SQL clause.
+   * Callers must not use this method to infer table semantics from an arbitrary token.
+   */
+  public boolean isValidTableTarget(String target) {
 
-    if (table == null || table.isBlank()) {
+    if (target == null || target.isBlank()) {
 
       return false;
     }
 
-    table = table.trim().toUpperCase();
+    String table = target.trim().toUpperCase();
 
-    String localName = table.contains(".")
-        ? table.substring(table.lastIndexOf('.') + 1)
+    if (!TABLE_TARGET_PATTERN.matcher(table).matches()) {
+      return false;
+    }
+
+    String withoutDbLink = table.contains("@")
+        ? table.substring(0, table.indexOf('@'))
         : table;
-    String qualifier = table.contains(".")
-        ? table.substring(0, table.indexOf('.'))
+    String localName = withoutDbLink.contains(".")
+        ? withoutDbLink.substring(withoutDbLink.lastIndexOf('.') + 1)
+        : withoutDbLink;
+    String qualifier = withoutDbLink.contains(".")
+        ? withoutDbLink.substring(0, withoutDbLink.indexOf('.'))
         : "";
-
-    if (hasVariablePrefix(localName) || hasVariablePrefix(qualifier)) {
-      return false;
-    }
 
     // =============================================
     // BASIC HARDENING
     // =============================================
 
-   if (table.length() == 1) {
-
-    return table.matches("[A-Z]");
-}
-
-    // =============================================
-    // SQL BLACKLIST
-    // =============================================
-
-    if (Set.of(
-
-        "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "JOIN",
-        "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AND", "OR", "GROUP", "ORDER", "BY", "BEGIN",
-        "END", "NULL", "IS", "AS", "LOOP", "FOR", "WHEN", "OTHERS", "DE", "OF",
-        "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE", "ROWNUM",
-        "ID_CLIENTE", "ID_DESPACHO", "MONTO_FACTURADO", "OPERACION", "FECHA_FACTURA",
-        "USUARIO", "FECHA"
-
-    ).contains(table)) {
-
-      return false;
-    }
-
-    // =============================================
-    // CLIENTES
-    // STOCK_DEPOSITO
-    // =============================================
-
-    if (table.matches("[A-Z][A-Z0-9_$#]*(?:@[A-Z][A-Z0-9_$#]*)?")) {
-
-      return true;
-    }
-
-    // =============================================
-    // CRM.CLIENTES
-    // ERP.PEDIDOS
-    // =============================================
-
-    if (table.matches("[A-Z][A-Z0-9_$#]*\\.[A-Z][A-Z0-9_$#]*(?:@[A-Z][A-Z0-9_$#]*)?")) {
-
-      return true;
-    }
-
-    return false;
+    return !ORACLE_RESERVED_IDENTIFIERS.contains(localName)
+        && !ORACLE_RESERVED_IDENTIFIERS.contains(qualifier);
   }
 
-  private boolean hasVariablePrefix(String identifier) {
-    return identifier.matches("(?:V|P|R|C)_.+");
+  /** Validates package and subprogram graph targets independently from PL/SQL variable naming. */
+  public boolean isValidCallTarget(String target) {
+    if (target == null || target.isBlank()) {
+      return false;
+    }
+    String normalized = target.trim().toUpperCase();
+    if (!CALL_TARGET_PATTERN.matcher(normalized).matches()) {
+      return false;
+    }
+    String[] parts = normalized.split("\\.");
+    for (String part : parts) {
+      if (ORACLE_RESERVED_IDENTIFIERS.contains(part)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private boolean isCursorForUpdate(String sql, int updateStart) {

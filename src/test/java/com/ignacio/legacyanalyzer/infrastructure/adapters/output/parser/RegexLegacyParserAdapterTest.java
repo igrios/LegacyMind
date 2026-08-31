@@ -104,17 +104,20 @@ class RegexLegacyParserAdapterTest {
     }
 
     @Test
-    void shouldRejectVariablesRecordFieldsAndOraclePseudoColumnsAsTables() {
+    void shouldValidateOracleTableIdentifiersWithoutGuessingColumnNames() {
         List<String> falseCandidates = List.of(
-                "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE",
-                "ROWNUM", "ID_CLIENTE", "ID_DESPACHO", "MONTO_FACTURADO", "OPERACION",
-                "FECHA_FACTURA", "USUARIO", "FECHA",
-                "R_FACT.ID_CLIENTE", "V_MONTO_FINAL", "P_CLIENTE",
-                "R_REGISTRO", "C_CURSOR");
+                "SYSDATE", "USER", "DUAL", "NEXTVAL", "CURRVAL", "SQLERRM", "SQLCODE", "ROWNUM",
+                "CRM.DUAL", "SYS.USER@REMOTE_DB", "CLIENTES;DELETE", "1CLIENTES");
 
         falseCandidates.forEach(candidate ->
-                assertFalse(semanticExtractor.isValidTable(candidate), candidate));
-        assertTrue(semanticExtractor.isValidTable("CRM.CLIENTES"));
+                assertFalse(semanticExtractor.isValidTableTarget(candidate), candidate));
+        assertTrue(semanticExtractor.isValidTableTarget("CRM.CLIENTES"));
+        assertTrue(semanticExtractor.isValidTableTarget("CRM.CLIENTES@REMOTE_DB"));
+        assertTrue(semanticExtractor.isValidTableTarget("ID_CLIENTE"));
+        assertTrue(semanticExtractor.isValidTableTarget("P_CLIENTE"));
+        assertTrue(semanticExtractor.isValidCallTarget("P_FACTURACION.PROCESAR"));
+        assertTrue(semanticExtractor.isValidCallTarget("R_REPORTES.GENERAR"));
+        assertTrue(semanticExtractor.isValidCallTarget("C_CLIENTES.ACTUALIZAR"));
     }
 
     @Test

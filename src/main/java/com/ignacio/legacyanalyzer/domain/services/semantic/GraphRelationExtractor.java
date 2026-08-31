@@ -3,7 +3,6 @@ package com.ignacio.legacyanalyzer.domain.services.semantic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
@@ -18,10 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 public class GraphRelationExtractor {
 
     private static final double REGEX_CONFIDENCE = 0.8d;
-    private static final Set<String> INVALID_RELATION_TARGETS = Set.of(
-            "ID_CLIENTE", "ID_DESPACHO", "MONTO_FACTURADO", "OPERACION",
-            "FECHA_FACTURA", "FECHA", "USUARIO");
-
     private final SqlSemanticExtractor semanticExtractor;
 
     public List<KnowledgeRelation> extractKnowledgeRelations(
@@ -43,7 +38,8 @@ public class GraphRelationExtractor {
 
         while (callMatcher.find()) {
             String packageName = callMatcher.group(1).toUpperCase();
-            if (packageName.length() < 3 || packageName.equals(objectName)) {
+            if (!semanticExtractor.isValidCallTarget(packageName)
+                    || packageName.equalsIgnoreCase(objectName)) {
                 continue;
             }
             relations.add(relation(objectName, "CALLS", packageName,
@@ -52,24 +48,23 @@ public class GraphRelationExtractor {
         }
 
         for (String table : semanticExtractor.extractReadTables(normalized)) {
-            if (semanticExtractor.isValidTable(table)) {
-                relations.add(relation(objectName, "READS", table, objectName, sourceCode,
-                        evidenceForTable(sourceCode, table, "READS"), analysisId));
-            }
+            relations.add(relation(objectName, "READS", table, objectName, sourceCode,
+                    evidenceForTable(sourceCode, table, "READS"), analysisId));
         }
 
         for (String table : semanticExtractor.extractWriteTables(normalized)) {
-            if (semanticExtractor.isValidTable(table)) {
-                relations.add(relation(objectName, "WRITES", table, objectName, sourceCode,
-                        evidenceForTable(sourceCode, table, "WRITES"), analysisId));
-            }
+            relations.add(relation(objectName, "WRITES", table, objectName, sourceCode,
+                    evidenceForTable(sourceCode, table, "WRITES"), analysisId));
         }
 
         for (SubprogramNode subprogram : subprograms) {
             for (String call : subprogram.getCalls()) {
-                relations.add(relation(subprogram.getQualifiedName(), "CALLS",
-                        objectName + "." + call, subprogram.getQualifiedName(), sourceCode,
-                        evidenceForToken(sourceCode, call), analysisId));
+                String target = objectName + "." + call;
+                if (semanticExtractor.isValidCallTarget(target)) {
+                    relations.add(relation(subprogram.getQualifiedName(), "CALLS",
+                            target, subprogram.getQualifiedName(), sourceCode,
+                            evidenceForToken(sourceCode, call), analysisId));
+                }
             }
         }
 
@@ -78,7 +73,7 @@ public class GraphRelationExtractor {
                 .matcher(normalized);
         if (normalized.contains("TRIGGER") && triggerMatcher.find()) {
             String targetTable = triggerMatcher.group(1).toUpperCase();
-            if (semanticExtractor.isValidTable(targetTable)) {
+            if (semanticExtractor.isValidTableTarget(targetTable)) {
                 relations.add(relation(objectName, "TRIGGER_ON", targetTable, objectName,
                         sourceCode,
                         evidenceAround(sourceCode, triggerMatcher.start(), triggerMatcher.end()),
@@ -86,10 +81,7 @@ public class GraphRelationExtractor {
             }
         }
 
-        return relations.stream()
-                .filter(this::hasValidTarget)
-                .distinct()
-                .toList();
+        return relations.stream().distinct().toList();
     }
 
     private KnowledgeRelation relation(
@@ -163,24 +155,6 @@ public class GraphRelationExtractor {
                 }
             }
         }
-    }
-
-    private boolean hasValidTarget(KnowledgeRelation relation) {
-        String target = relation.target();
-        if (target == null || target.isBlank()) {
-            return false;
-        }
-
-        if (relation.relation().equals("READS")
-                || relation.relation().equals("WRITES")
-                || relation.relation().equals("TRIGGER_ON")) {
-            return semanticExtractor.isValidTable(target);
-        }
-
-        String normalized = target.toUpperCase().trim();
-        return normalized.matches("[A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?")
-                && !INVALID_RELATION_TARGETS.contains(normalized)
-                && !normalized.matches("(?:V|P|R|C)_.+");
     }
 
     private record Evidence(int start, int end) {
